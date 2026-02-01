@@ -14,6 +14,26 @@ spec:
       labels:
         app: {{ include "bagisto.name" . }}
     spec:
+      initContainers:
+        - name: copy-public-files
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              echo "Copying public files to shared volume..."
+              if [ -d "/var/www/html/public" ]; then
+                cp -rp /var/www/html/public/. /public-shared/
+                echo "Public files copied successfully ($(ls -A /public-shared | wc -l) items)"
+              else
+                echo "ERROR: /var/www/html/public directory not found!"
+                exit 1
+              fi
+          volumeMounts:
+            - name: bagisto-public
+              mountPath: /public-shared
       containers:
         - name: bagisto
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
