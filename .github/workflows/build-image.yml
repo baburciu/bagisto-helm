@@ -99,7 +99,7 @@ jobs:
             INSTALL_STRIPE_GATEWAY=${{ steps.build-args.outputs.INSTALL_STRIPE }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
 
       - name: Generate build summary
         run: |
