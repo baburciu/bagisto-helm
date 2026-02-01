@@ -1,86 +1,224 @@
-# Bagisto Application Configuration
+## Bagisto Application configuration
+
+# -- Number of Bagisto pod replicas
 replicaCount: 2
 
+# -- Container image settings
 image:
+  # -- Bagisto container image repository
   repository: docker.io/webkul/bagisto
+  # -- Bagisto container image tag
   tag: 2.3.11
+  # -- Image pull policy
   pullPolicy: IfNotPresent
 
+# -- Kubernetes service configuration
 service:
+  # -- Service type
   type: ClusterIP
+  # -- Service port
   port: 80
 
-# Database Configuration
-database:
-  # For external MySQL (managed service), uncomment and configure:
-  # external:
-  #   enabled: true
-  #   host: "prod-mysql.example.com"
-  #   port: 3306
-  #   username: "bagisto"
-  #   password: "prodpassword"
-  #   name: "bagisto"
+# -- Application Storage (for uploads, cache, etc.)
+storage:
+  # -- Enable persistent storage for Bagisto uploads and cache
+  enabled: true
+  # -- Storage access mode (ReadWriteMany required for multiple replicas)
+  accessMode: ReadWriteMany
+  # -- Storage size
+  size: 10Gi
+  # -- Storage class name (leave empty for default)
+  storageClass: ""
 
-  # Internal database settings (used when external.enabled is false)
-  host: "{{ .Release.Name }}-mysql"
-  port: 3306
-  name: bagisto
-  username: bagisto
-  password: bagisto
-  # Use existing secret for database password (recommended for production)
+# -- Bagisto application configuration
+app:
+  # -- Application name
+  name: "Bagisto"
+  # -- Application environment (local, production)
+  env: "production"
+  # -- Enable debug mode
+  debug: false
+  # -- Laravel APP_KEY (base64-encoded 32-byte random string). Generate with: echo "base64:$(openssl rand -base64 32)"
+  key: "base64:CHANGE_THIS_KEY_RUN_php_artisan_key_generate"
+  # -- Application URL
+  url: "http://localhost"
+  # -- Application timezone
+  timezone: "UTC"
+  # -- Application locale
+  locale: "en"
+  # -- Application currency code
+  currency: "EUR"
+  # -- Use existing Kubernetes secret for APP_KEY (recommended for production)
   existingSecret:
+    # -- Name of the secret containing APP_KEY
     name: ""
+    # -- Key in the secret containing the APP_KEY value
+    keyKey: "app-key"
+
+# -- Session Configuration
+session:
+  # -- Session driver (file, redis, database)
+  driver: "redis"
+  # -- Session lifetime in minutes
+  lifetime: 120
+
+# -- Cache Configuration
+cache:
+  # -- Cache store (file, redis, database)
+  store: "redis"
+  # -- Cache key prefix
+  prefix: "bagisto_cache"
+
+# -- Queue Configuration
+queue:
+  # -- Queue connection driver (sync, redis, database)
+  connection: "redis"
+
+# -- Mail Configuration
+mail:
+  # -- Enable mail sending
+  enabled: false
+  # -- Mail driver (smtp, sendmail, mailgun, ses)
+  mailer: "smtp"
+  # -- SMTP host
+  host: "mailpit"
+  # -- SMTP port
+  port: 1025
+  # -- From email address configuration
+  from:
+    # -- From email address
+    address: "shop@example.com"
+    # -- From email name
+    name: "Bagisto Shop"
+  # -- Admin email configuration
+  admin:
+    # -- Admin email address
+    address: "admin@example.com"
+    # -- Admin email name
+    name: "Bagisto Admin"
+
+# -- MySQL Database Configuration
+databaseConfig:
+  # -- External MySQL configuration (for managed services like AWS RDS)
+  external:
+    # -- Enable external MySQL
+    enabled: false
+    # -- External MySQL host
+    host: "prod-mysql.example.com"
+    # -- External MySQL port
+    port: 3306
+    # -- External MySQL username
+    username: "bagisto"
+    # -- External MySQL password (use existingSecret instead for production)
+    password: "prodpassword"
+    # -- External MySQL database name
+    name: "bagisto"
+
+  # -- Database host (supports template syntax)
+  host: "{{ .Release.Name }}-mysql"
+  # -- Database port
+  port: 3306
+  # -- Database name
+  name: bagisto
+  # -- Database username
+  username: bagisto
+  # -- Database password (use existingSecret instead for production)
+  password: bagisto
+  # -- Use existing Kubernetes secret for database password (recommended for production)
+  existingSecret:
+    # -- Name of the secret containing database password
+    name: ""
+    # -- Key in the secret containing the password value
     passwordKey: "db-password"
 
-# MySQL Subchart Configuration (Bitnami MySQL)
-# Disabled when database.external.enabled is true
+# -- MySQL Subchart Configuration (Bitnami MySQL). Set enabled to false when using external database.
 mysql:
+  # -- Enable MySQL subchart deployment
   enabled: true
+  # -- MySQL authentication configuration
   auth:
+    # -- MySQL database name
     database: bagisto
+    # -- MySQL user name
     username: bagisto
+    # -- MySQL user password
     password: bagisto
+    # -- MySQL root password
     rootPassword: root
-    # Use existing secret for MySQL passwords (recommended for production)
-    # If set, auth.password and auth.rootPassword are ignored
+    # -- Use existing secret for MySQL passwords (recommended for production). If set, auth.password and auth.rootPassword are ignored
     existingSecret: ""
+  # -- MySQL primary configuration
   primary:
+    # -- MySQL persistence configuration
     persistence:
+      # -- Enable persistence for MySQL
       enabled: true
+      # -- MySQL persistent volume size
       size: 10Gi
+      # -- MySQL storage class name
       storageClass: ""
+  # -- MySQL architecture (standalone or replication)
   architecture: standalone
-  image:
-    tag: "8.0"
 
-# Redis Configuration
-redis:
-  # For external Redis (managed service), uncomment and configure:
-  # external:
-  #   enabled: true
-  #   host: "prod-redis.example.com"
-  #   port: 6379
-
-  # Redis Subchart Configuration (Bitnami Redis)
-  # Disabled when redis.external.enabled is true
-  enabled: true
-  architecture: standalone
-  auth:
+# -- Redis Connection Configuration
+redisConfig:
+  # -- External Redis configuration (for managed services like AWS ElastiCache)
+  external:
+    # -- Enable external Redis
     enabled: false
+    # -- External Redis host
+    host: "prod-redis.example.com"
+    # -- External Redis port
+    port: 6379
+
+  # -- Redis host (supports template syntax)
+  host: "{{ .Release.Name }}-redis-master"
+  # -- Redis port
+  port: 6379
+
+  # -- Use existing Kubernetes secret for Redis password (recommended for production)
+  existingSecret:
+    # -- Name of the secret containing Redis password
+    name: ""
+    # -- Key in the secret containing the password value
+    passwordKey: "redis-password"
+
+# -- Redis Subchart Configuration (Bitnami Redis). Set enabled to false when using external Redis.
+redis:
+  # -- Enable Redis subchart deployment
+  enabled: true
+  # -- Redis architecture (standalone or replication)
+  architecture: standalone
+  # -- Redis authentication configuration
+  auth:
+    # -- Enable Redis password authentication
+    enabled: false
+  # -- Redis master configuration
   master:
+    # -- Redis persistence configuration
     persistence:
+      # -- Enable persistence for Redis
       enabled: true
+      # -- Redis persistent volume size
       size: 2Gi
-      # storageClass: ""
+      # -- Redis storage class name
+      storageClass: ""
+    # -- Redis server command with custom arguments for persistence and logging
     command: ["redis-server", "--save", "20", "1", "--loglevel", "warning"]
 
-# Elasticsearch Configuration
+# -- Elasticsearch Configuration (for advanced search functionality)
 elasticsearch:
+  # -- Enable Elasticsearch deployment
   enabled: false
+  # -- Number of Elasticsearch replicas
   replicas: 1
+  # -- Elasticsearch container image
   image: docker.elastic.co/elasticsearch/elasticsearch
+  # -- Elasticsearch image tag
   imageTag: 9.2.4
+  # -- Elasticsearch Java options (heap size)
   esJavaOpts: "-Xms256m -Xmx256m"
+  # -- Elasticsearch resource requests and limits
   resources:
     requests:
       memory: "512Mi"
@@ -88,63 +226,14 @@ elasticsearch:
     limits:
       memory: "1Gi"
       cpu: "1000m"
+  # -- Elasticsearch persistent volume configuration
   volumeClaimTemplate:
     accessModes: ["ReadWriteOnce"]
     resources:
       requests:
         storage: 10Gi
+  # -- Elasticsearch configuration file
   esConfig:
     elasticsearch.yml: |
       xpack.security.enabled: false
       discovery.type: single-node
-
-# Application Storage (for uploads, cache, etc.)
-storage:
-  enabled: true
-  accessMode: ReadWriteMany
-  size: 10Gi
-  # storageClass: ""
-
-# Application Configuration
-app:
-  name: "Bagisto"
-  env: "production"
-  debug: false
-  # Laravel APP_KEY should be a base64-encoded 32-byte random string.
-  # You can generate it with this command
-  # $ echo "base64:$(openssl rand -base64 32)"
-  key: "base64:CHANGE_THIS_KEY_RUN_php_artisan_key_generate"
-  url: "http://localhost"
-  timezone: "UTC"
-  locale: "en"
-  currency: "USD"
-  # Use existing secret for APP_KEY (recommended for production)
-  # existingSecret:
-  #   name: ""
-  #   keyKey: "app-key"
-
-# Session Configuration
-session:
-  driver: "redis"
-  lifetime: 120
-
-# Cache Configuration
-cache:
-  store: "redis"
-  prefix: "bagisto_cache"
-
-# Queue Configuration
-queue:
-  connection: "redis"
-
-# Mail Configuration
-# mail:
-#   mailer: "smtp"
-#   host: "mailpit"
-#   port: 1025
-#   from:
-#     address: "shop@example.com"
-#     name: "Bagisto Shop"
-#   admin:
-#     address: "admin@example.com"
-#     name: "Bagisto Admin"

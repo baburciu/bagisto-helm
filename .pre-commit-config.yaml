@@ -1,0 +1,7 @@
+repos:
+- repo: https://github.com/norwoodj/helm-docs.git
+  rev:  v1.14.2
+  hooks:
+    - id: helm-docs
+      args:
+        - --chart-search-root=.

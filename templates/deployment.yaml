@@ -29,11 +29,11 @@ spec:
             - name: APP_DEBUG
               value: {{ .Values.app.debug | quote }}
             - name: APP_KEY
-              {{- if .Values.app.existingSecret.name }}
+              {{- if ((.Values.app).existingSecret).name }}
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.app.existingSecret.name }}
-                  key: {{ .Values.app.existingSecret.keyKey }}
+                  key: {{ .Values.app.existingSecret.key }}
               {{- else }}
               value: {{ .Values.app.key | quote }}
               {{- end }}
@@ -50,21 +50,21 @@ spec:
             - name: DB_CONNECTION
               value: "mysql"
             - name: DB_HOST
-              value: {{ tpl .Values.database.host . | quote }}
+              value: {{ tpl .Values.databaseConfig.host . | quote }}
             - name: DB_PORT
-              value: {{ .Values.database.port | quote }}
+              value: {{ .Values.databaseConfig.port | quote }}
             - name: DB_DATABASE
-              value: {{ .Values.database.name | quote }}
+              value: {{ .Values.databaseConfig.name | quote }}
             - name: DB_USERNAME
-              value: {{ .Values.database.username | quote }}
+              value: {{ .Values.databaseConfig.username | quote }}
             - name: DB_PASSWORD
-              {{- if .Values.database.existingSecret.name }}
+              {{- if ((.Values.databaseConfig).existingSecret).name }}
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.database.existingSecret.name }}
-                  key: {{ .Values.database.existingSecret.passwordKey }}
+                  name: {{ .Values.databaseConfig.existingSecret.name }}
+                  key: {{ .Values.databaseConfig.existingSecret.passwordKey }}
               {{- else }}
-              value: {{ .Values.database.password | quote }}
+              value: {{ .Values.databaseConfig.password | quote }}
               {{- end }}
             - name: DB_PREFIX
               value: ""
@@ -72,12 +72,29 @@ spec:
             # Redis Configuration
             - name: REDIS_CLIENT
               value: "phpredis"
+            {{- if ((.Values.redisConfig).external).enabled }}
+            # External Redis configuration
             - name: REDIS_HOST
-              value: "{{ .Release.Name }}-redis-master"
+              value: {{ .Values.redisConfig.external.host | quote }}
             - name: REDIS_PORT
-              value: "6379"
+              value: {{ .Values.redisConfig.external.port | quote }}
+            {{- else }}
+            # Internal Redis configuration
+            - name: REDIS_HOST
+              value: {{ tpl .Values.redisConfig.host . | quote }}
+            - name: REDIS_PORT
+              value: {{ .Values.redisConfig.port | quote }}
+            {{- end }}
+            {{- if ((.Values.redisConfig).existingSecret).name }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.redisConfig.existingSecret.name }}
+                  key: {{ .Values.redisConfig.existingSecret.passwordKey | default "redis-password" }}
+            {{- else }}
             - name: REDIS_PASSWORD
               value: ""
+            {{- end }}
 
             # Session Configuration
             - name: SESSION_DRIVER
@@ -109,6 +126,7 @@ spec:
               value: "http://{{ .Release.Name }}-elasticsearch:9200"
             {{- end }}
 
+            {{- if .Values.mail.enabled }}
             # Mail Configuration
             - name: MAIL_MAILER
               value: {{ .Values.mail.mailer | quote }}
@@ -124,6 +142,7 @@ spec:
               value: {{ .Values.mail.admin.address | quote }}
             - name: ADMIN_MAIL_NAME
               value: {{ .Values.mail.admin.name | quote }}
+            {{- end }}
 
             # Logging
             - name: LOG_CHANNEL

@@ -1,0 +1,132 @@
+{{ template "chart.header" . }}
+{{ template "chart.description" . }}
+
+{{ template "chart.versionBadge" . }}{{ template "chart.typeBadge" . }}{{ template "chart.appVersionBadge" . }}
+
+## Features
+
+- **High Availability**: Supports horizontal scaling with multiple replicas
+- **Kubernetes Native**: Designed for K8s with Gateway API support (HTTPRoute created separately)
+- **Managed Services Support**: Can use external MySQL and Redis (commented examples in values.yaml)
+- **Subcharts**: Includes MySQL, Redis, and Elasticsearch as dependencies
+- **Persistent Storage**: Configurable storage for application data, database, and search index
+- **Complete Laravel/Bagisto Configuration**: All environment variables pre-configured
+
+## Prerequisites
+
+- Kubernetes
+- Helm
+- Storage class that supports ReadWriteMany (for multi-replica deployments)
+
+{{ template "chart.requirementsSection" . }}
+
+## Installation
+
+### 1. Add Bitnami repository for subcharts
+
+```bash
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm repo update
+```
+
+### 2. Update chart dependencies
+
+```bash
+cd bagisto-helm
+helm dependency update
+```
+
+### 3. Install the chart
+
+```bash
+helm install bagisto . -n bagisto --create-namespace
+```
+
+## Configuration
+
+{{ template "chart.valuesSection" . }}
+
+### Using Existing Secrets (Recommended for Production)
+
+For security, avoid storing sensitive credentials in `values.yaml`. Instead, create Kubernetes secrets and reference them.
+
+#### Generate and Create Secret for Application Key
+
+First, generate a Laravel APP_KEY:
+
+```bash
+# Generate a base64-encoded 32-byte random string
+echo "base64:$(openssl rand -base64 32)"
+```
+
+Then create the secret:
+
+```bash
+kubectl create secret generic bagisto-app-secret \
+  --from-literal=app-key='base64:YOUR_GENERATED_KEY_HERE' \
+  -n bagisto
+```
+
+Reference it in `values.yaml`:
+
+```yaml
+app:
+  existingSecret:
+    name: "bagisto-app-secret"
+    keyKey: "app-key"
+```
+
+#### Create Secret for Database Password
+
+```bash
+kubectl create secret generic bagisto-db-secret \
+  --from-literal=db-password='YOUR_DB_PASSWORD_HERE' \
+  -n bagisto
+```
+
+Reference it in `values.yaml`:
+
+```yaml
+databaseConfig:
+  existingSecret:
+    name: "bagisto-db-secret"
+    passwordKey: "db-password"
+```
+
+#### Create Secret for Redis Password
+
+```bash
+kubectl create secret generic bagisto-redis-secret \
+  --from-literal=redis-password='YOUR_REDIS_PASSWORD_HERE' \
+  -n bagisto
+```
+
+Reference it in `values.yaml`:
+
+```yaml
+redisConfig:
+  existingSecret:
+    name: "bagisto-db-secret"
+    passwordKey: "db-password"
+```
+
+#### External MySQL/Redis Configuration
+
+**Important:** When using external MySQL and/or Redis, you must manually disable the MySQL and/or Redis subchart(s):
+
+```yaml
+mysql:
+  enabled: false
+
+redis:
+  enabled: false
+```
+
+> NOTE!
+> The subcharts are not automatically disabled when external services are configured. You must explicitly set `mysql.enabled: false` or `redis.enabled: false` to avoid deploying unnecessary resources.
+
+## License
+
+Same as [Bagisto](https://github.com/bagisto/bagisto) & [Stripe Payment Gateway](https://github.com/codenteq/stripe-payment-gateway)
+
+{{ template "helm-docs.versionFooter" . }}
