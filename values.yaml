@@ -136,6 +136,10 @@ mysql:
   # -- Enable MySQL subchart deployment
   enabled: true
   # -- MySQL authentication configuration
+  global:
+    imageRegistry: public.ecr.aws
+    security:
+      allowInsecureImages: true
   auth:
     # -- MySQL database name
     database: bagisto
@@ -203,8 +207,14 @@ redis:
       size: 2Gi
       # -- Redis storage class name
       storageClass: ""
-    # -- Redis server command with custom arguments for persistence and logging
-    command: ["redis-server", "--save", "20", "1", "--loglevel", "warning"]
+  # -- Redis common configuration
+  commonConfiguration: |-
+    # Enable AOF persistence
+    appendonly yes
+    # Save snapshot every 20 seconds if at least 1 key changed
+    save 20 1
+    # Set log level to warning
+    loglevel warning
 
 # -- Elasticsearch Configuration (for advanced search functionality)
 elasticsearch:
