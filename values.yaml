@@ -1,0 +1,150 @@
+# Bagisto Application Configuration
+replicaCount: 2
+
+image:
+  repository: docker.io/webkul/bagisto
+  tag: 2.3.11
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+
+# Database Configuration
+database:
+  # For external MySQL (managed service), uncomment and configure:
+  # external:
+  #   enabled: true
+  #   host: "prod-mysql.example.com"
+  #   port: 3306
+  #   username: "bagisto"
+  #   password: "prodpassword"
+  #   name: "bagisto"
+
+  # Internal database settings (used when external.enabled is false)
+  host: "{{ .Release.Name }}-mysql"
+  port: 3306
+  name: bagisto
+  username: bagisto
+  password: bagisto
+  # Use existing secret for database password (recommended for production)
+  existingSecret:
+    name: ""
+    passwordKey: "db-password"
+
+# MySQL Subchart Configuration (Bitnami MySQL)
+# Disabled when database.external.enabled is true
+mysql:
+  enabled: true
+  auth:
+    database: bagisto
+    username: bagisto
+    password: bagisto
+    rootPassword: root
+    # Use existing secret for MySQL passwords (recommended for production)
+    # If set, auth.password and auth.rootPassword are ignored
+    existingSecret: ""
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClass: ""
+  architecture: standalone
+  image:
+    tag: "8.0"
+
+# Redis Configuration
+redis:
+  # For external Redis (managed service), uncomment and configure:
+  # external:
+  #   enabled: true
+  #   host: "prod-redis.example.com"
+  #   port: 6379
+
+  # Redis Subchart Configuration (Bitnami Redis)
+  # Disabled when redis.external.enabled is true
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: true
+      size: 2Gi
+      # storageClass: ""
+    command: ["redis-server", "--save", "20", "1", "--loglevel", "warning"]
+
+# Elasticsearch Configuration
+elasticsearch:
+  enabled: false
+  replicas: 1
+  image: docker.elastic.co/elasticsearch/elasticsearch
+  imageTag: 9.2.4
+  esJavaOpts: "-Xms256m -Xmx256m"
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "100m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+  volumeClaimTemplate:
+    accessModes: ["ReadWriteOnce"]
+    resources:
+      requests:
+        storage: 10Gi
+  esConfig:
+    elasticsearch.yml: |
+      xpack.security.enabled: false
+      discovery.type: single-node
+
+# Application Storage (for uploads, cache, etc.)
+storage:
+  enabled: true
+  accessMode: ReadWriteMany
+  size: 10Gi
+  # storageClass: ""
+
+# Application Configuration
+app:
+  name: "Bagisto"
+  env: "production"
+  debug: false
+  # Laravel APP_KEY should be a base64-encoded 32-byte random string.
+  # You can generate it with this command
+  # $ echo "base64:$(openssl rand -base64 32)"
+  key: "base64:CHANGE_THIS_KEY_RUN_php_artisan_key_generate"
+  url: "http://localhost"
+  timezone: "UTC"
+  locale: "en"
+  currency: "USD"
+  # Use existing secret for APP_KEY (recommended for production)
+  # existingSecret:
+  #   name: ""
+  #   keyKey: "app-key"
+
+# Session Configuration
+session:
+  driver: "redis"
+  lifetime: 120
+
+# Cache Configuration
+cache:
+  store: "redis"
+  prefix: "bagisto_cache"
+
+# Queue Configuration
+queue:
+  connection: "redis"
+
+# Mail Configuration
+# mail:
+#   mailer: "smtp"
+#   host: "mailpit"
+#   port: 1025
+#   from:
+#     address: "shop@example.com"
+#     name: "Bagisto Shop"
+#   admin:
+#     address: "admin@example.com"
+#     name: "Bagisto Admin"

@@ -1,0 +1,118 @@
+name: Build and Push Bagisto Production Image
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      bagisto_version:
+        description: 'Bagisto https://github.com/bagisto/bagisto version (e.g., v2.3.11)'
+        required: true
+        default: 'v2.3.11'
+      stripe_version:
+        description: 'Stripe Payment Gateway https://github.com/codenteq/stripe-payment-gateway# version (e.g., v1.5.3 or * for latest)'
+        required: true
+        default: 'v1.5.3'
+      install_stripe:
+        description: 'Install Stripe as payment method (true/false)'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/bagisto
+  BAGISTO_VERSION: v2.3.11
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            # Tag with branch name
+            type=ref,event=branch
+            # Tag with version tag
+            type=ref,event=tag
+            # Tag with semantic version
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            # Tag as latest on main/master
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Determine build arguments
+        id: build-args
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "BAGISTO_VERSION=${{ github.event.inputs.bagisto_version }}" >> $GITHUB_OUTPUT
+            echo "STRIPE_VERSION=${{ github.event.inputs.stripe_version }}" >> $GITHUB_OUTPUT
+            echo "INSTALL_STRIPE=${{ github.event.inputs.install_stripe }}" >> $GITHUB_OUTPUT
+            echo "CUSTOM_TAG=${{ github.event.inputs.bagisto_version }}-stripe-${{ github.event.inputs.stripe_version }}" >> $GITHUB_OUTPUT
+          else
+            echo "BAGISTO_VERSION=${{ env.BAGISTO_VERSION }}" >> $GITHUB_OUTPUT
+            echo "STRIPE_VERSION=*" >> $GITHUB_OUTPUT
+            echo "INSTALL_STRIPE=true" >> $GITHUB_OUTPUT
+            echo "CUSTOM_TAG=${{ env.BAGISTO_VERSION }}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: build/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.tags }}
+            ${{ steps.build-args.outputs.CUSTOM_TAG && format('{0}:{1}', env.IMAGE_NAME, steps.build-args.outputs.CUSTOM_TAG) || '' }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BAGISTO_VERSION=${{ steps.build-args.outputs.BAGISTO_VERSION }}
+            STRIPE_GATEWAY_VERSION=${{ steps.build-args.outputs.STRIPE_VERSION }}
+            INSTALL_STRIPE_GATEWAY=${{ steps.build-args.outputs.INSTALL_STRIPE }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      - name: Generate build summary
+        run: |
+          echo "## Build Summary :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ env.IMAGE_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Build Configuration:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Bagisto Version: \`${{ steps.build-args.outputs.BAGISTO_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Stripe Gateway Version: \`${{ steps.build-args.outputs.STRIPE_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Install Stripe: \`${{ steps.build-args.outputs.INSTALL_STRIPE }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:**" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

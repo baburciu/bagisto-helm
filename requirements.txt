@@ -1,0 +1,9 @@
+# This file is optional for Helm v3+, but included for clarity
+# Dependencies are managed in Chart.yaml
+dependencies:
+  - name: mysql
+    version: 9.19.1
+    repository: https://charts.bitnami.com/bitnami
+  - name: redis
+    version: 18.5.0
+    repository: https://charts.bitnami.com/bitnami

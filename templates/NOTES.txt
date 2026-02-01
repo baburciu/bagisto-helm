@@ -1,0 +1,35 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your Bagisto e-commerce platform has been deployed.
+
+1. Get the application service:
+   kubectl get svc {{ include "bagisto.fullname" . }} -n {{ .Release.Namespace }}
+
+   Note: Create an HTTPRoute pointing to this service to expose it via Gateway API.
+{{- else }}
+   Using external MySQL at {{ .Values.database.host }}
+{{- end }}
+
+3. Cache Status:
+{{- if .Values.redis.enabled }}
+   Redis is deployed as a subchart ({{ .Release.Name }}-redis-master)
+{{- else }}
+   Using external Redis at {{ .Values.redis.external.host }}
+{{- end }}
+
+4. Search Status:
+{{- if .Values.elasticsearch.enabled }}
+   Elasticsearch is deployed ({{ .Release.Name }}-elasticsearch)
+{{- else }}
+   Elasticsearch is disabled
+{{- end }}
+
+5. Check deployment status:
+   kubectl get pods -n {{ .Release.Namespace }}
+
+6. Access logs:
+   kubectl logs -f deployment/{{ include "bagisto.fullname" . }} -n {{ .Release.Namespace }}
+
+For more information, visit: https://bagisto.com/en/docs/
+
+Happy selling with Bagisto!

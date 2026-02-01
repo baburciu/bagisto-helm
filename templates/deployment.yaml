@@ -1,0 +1,147 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "bagisto.fullname" . }}
+  labels:
+    app: {{ include "bagisto.name" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "bagisto.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "bagisto.name" . }}
+    spec:
+      containers:
+        - name: bagisto
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 80
+          env:
+            # Application Configuration
+            - name: APP_NAME
+              value: {{ .Values.app.name | quote }}
+            - name: APP_ENV
+              value: {{ .Values.app.env | quote }}
+            - name: APP_DEBUG
+              value: {{ .Values.app.debug | quote }}
+            - name: APP_KEY
+              {{- if .Values.app.existingSecret.name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.app.existingSecret.name }}
+                  key: {{ .Values.app.existingSecret.keyKey }}
+              {{- else }}
+              value: {{ .Values.app.key | quote }}
+              {{- end }}
+            - name: APP_URL
+              value: {{ .Values.app.url | quote }}
+            - name: APP_TIMEZONE
+              value: {{ .Values.app.timezone | quote }}
+            - name: APP_LOCALE
+              value: {{ .Values.app.locale | quote }}
+            - name: APP_CURRENCY
+              value: {{ .Values.app.currency | quote }}
+
+            # Database Configuration
+            - name: DB_CONNECTION
+              value: "mysql"
+            - name: DB_HOST
+              value: {{ tpl .Values.database.host . | quote }}
+            - name: DB_PORT
+              value: {{ .Values.database.port | quote }}
+            - name: DB_DATABASE
+              value: {{ .Values.database.name | quote }}
+            - name: DB_USERNAME
+              value: {{ .Values.database.username | quote }}
+            - name: DB_PASSWORD
+              {{- if .Values.database.existingSecret.name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.existingSecret.name }}
+                  key: {{ .Values.database.existingSecret.passwordKey }}
+              {{- else }}
+              value: {{ .Values.database.password | quote }}
+              {{- end }}
+            - name: DB_PREFIX
+              value: ""
+
+            # Redis Configuration
+            - name: REDIS_CLIENT
+              value: "phpredis"
+            - name: REDIS_HOST
+              value: "{{ .Release.Name }}-redis-master"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_PASSWORD
+              value: ""
+
+            # Session Configuration
+            - name: SESSION_DRIVER
+              value: {{ .Values.session.driver | quote }}
+            - name: SESSION_LIFETIME
+              value: {{ .Values.session.lifetime | quote }}
+
+            # Cache Configuration
+            - name: CACHE_STORE
+              value: {{ .Values.cache.store | quote }}
+            - name: CACHE_PREFIX
+              value: {{ .Values.cache.prefix | quote }}
+
+            # Queue Configuration
+            - name: QUEUE_CONNECTION
+              value: {{ .Values.queue.connection | quote }}
+
+            # Broadcasting
+            - name: BROADCAST_CONNECTION
+              value: "log"
+
+            # Filesystem
+            - name: FILESYSTEM_DISK
+              value: "public"
+
+            {{- if .Values.elasticsearch.enabled }}
+            # Elasticsearch Configuration
+            - name: ELASTICSEARCH_HOST
+              value: "http://{{ .Release.Name }}-elasticsearch:9200"
+            {{- end }}
+
+            # Mail Configuration
+            - name: MAIL_MAILER
+              value: {{ .Values.mail.mailer | quote }}
+            - name: MAIL_HOST
+              value: {{ .Values.mail.host | quote }}
+            - name: MAIL_PORT
+              value: {{ .Values.mail.port | quote }}
+            - name: MAIL_FROM_ADDRESS
+              value: {{ .Values.mail.from.address | quote }}
+            - name: MAIL_FROM_NAME
+              value: {{ .Values.mail.from.name | quote }}
+            - name: ADMIN_MAIL_ADDRESS
+              value: {{ .Values.mail.admin.address | quote }}
+            - name: ADMIN_MAIL_NAME
+              value: {{ .Values.mail.admin.name | quote }}
+
+            # Logging
+            - name: LOG_CHANNEL
+              value: "stack"
+            - name: LOG_LEVEL
+              value: "info"
+          volumeMounts:
+            - name: bagisto-storage
+              mountPath: /var/www/html/storage
+            - name: bagisto-vendor
+              mountPath: /var/www/html/vendor
+            - name: bagisto-bootstrap-cache
+              mountPath: /var/www/html/bootstrap/cache
+      volumes:
+        - name: bagisto-storage
+          persistentVolumeClaim:
+            claimName: bagisto-storage
+        - name: bagisto-vendor
+          emptyDir: {}
+        - name: bagisto-bootstrap-cache
+          emptyDir: {}
