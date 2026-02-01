@@ -115,7 +115,7 @@ databaseConfig:
     name: "bagisto"
 
   # -- Database host (supports template syntax)
-  host: "{{ .Release.Name }}-mysql"
+  host: "{{ include \"bagisto.fullname\" . }}-mysql"
   # -- Database port
   port: 3306
   # -- Database name

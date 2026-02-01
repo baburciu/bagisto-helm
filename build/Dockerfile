@@ -51,8 +51,8 @@ WORKDIR /var/www/html
 RUN mv /tmp/bagisto/* /tmp/bagisto/.* /var/www/html/ 2>/dev/null || true && \
     rm -rf /tmp/bagisto
 
-# Copy environment file
-COPY --chown=www-data:www-data ./build/.env /var/www/html/.env
+# Remove .env file - we'll use environment variables from Kubernetes
+RUN rm -f /var/www/html/.env
 
 # Install Bagisto dependencies
 RUN composer install --no-dev --optimize-autoloader --no-interaction
