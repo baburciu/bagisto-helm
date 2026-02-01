@@ -19,7 +19,8 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
-            - containerPort: 80
+            - containerPort: 9000
+              name: php-fpm
           env:
             # Application Configuration
             - name: APP_NAME
@@ -156,7 +157,38 @@ spec:
               mountPath: /var/www/html/vendor
             - name: bagisto-bootstrap-cache
               mountPath: /var/www/html/bootstrap/cache
+            - name: bagisto-public
+              mountPath: /var/www/html/public
+
+        - name: nginx
+          image: docker.io/nginx:1.28.1-alpine
+          ports:
+            - containerPort: 80
+              name: http
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d
+            - name: bagisto-public
+              mountPath: /var/www/html/public
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
       volumes:
+        - name: nginx-config
+          configMap:
+            name: {{ include "bagisto.fullname" . }}-nginx
+        - name: bagisto-public
+          emptyDir: {}
         - name: bagisto-storage
           persistentVolumeClaim:
             claimName: bagisto-storage

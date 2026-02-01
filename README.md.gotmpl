@@ -6,9 +6,11 @@
 ## Features
 
 - **High Availability**: Supports horizontal scaling with multiple replicas
+- **Nginx + PHP-FPM Architecture**: Uses Nginx sidecar container to serve HTTP traffic and proxy PHP requests to PHP-FPM
 - **Kubernetes Native**: Designed for K8s with Gateway API support (HTTPRoute created separately)
 - **Managed Services Support**: Can use external MySQL and Redis (commented examples in values.yaml)
 - **Subcharts**: Includes MySQL, Redis, and Elasticsearch as dependencies
+- **Standalone MySQL Option**: Alternative MySQL deployment using official MySQL images with ARM64 support
 - **Persistent Storage**: Configurable storage for application data, database, and search index
 - **Complete Laravel/Bagisto Configuration**: All environment variables pre-configured
 
