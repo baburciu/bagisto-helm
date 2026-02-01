@@ -1,0 +1,111 @@
+{{- if not .Values.mysql.enabled }}
+{{- if not ((.Values.databaseConfig).external).enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "bagisto.fullname" . }}-mysql
+  labels:
+    app: {{ include "bagisto.name" . }}-mysql
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - port: 3306
+      targetPort: 3306
+      name: mysql
+  selector:
+    app: {{ include "bagisto.name" . }}-mysql
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "bagisto.fullname" . }}-mysql
+  labels:
+    app: {{ include "bagisto.name" . }}-mysql
+spec:
+  serviceName: {{ include "bagisto.fullname" . }}-mysql
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "bagisto.name" . }}-mysql
+  template:
+    metadata:
+      labels:
+        app: {{ include "bagisto.name" . }}-mysql
+    spec:
+      containers:
+        - name: mysql
+          image: "{{ .Values.mysqlStandalone.image.repository }}:{{ .Values.mysqlStandalone.image.tag }}"
+          imagePullPolicy: {{ .Values.mysqlStandalone.image.pullPolicy }}
+          ports:
+            - containerPort: 3306
+              name: mysql
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              {{- if ((.Values.databaseConfig).existingSecret).name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.databaseConfig.existingSecret.name }}
+                  key: {{ .Values.databaseConfig.existingSecret.rootPasswordKey | default "mysql-root-password" }}
+              {{- else }}
+              value: {{ .Values.databaseConfig.rootPassword | default "root" | quote }}
+              {{- end }}
+            - name: MYSQL_DATABASE
+              value: {{ .Values.databaseConfig.name | quote }}
+            - name: MYSQL_USER
+              value: {{ .Values.databaseConfig.username | quote }}
+            - name: MYSQL_PASSWORD
+              {{- if ((.Values.databaseConfig).existingSecret).name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.databaseConfig.existingSecret.name }}
+                  key: {{ .Values.databaseConfig.existingSecret.passwordKey }}
+              {{- else }}
+              value: {{ .Values.databaseConfig.password | quote }}
+              {{- end }}
+          {{- if .Values.mysqlStandalone.args }}
+          args:
+            {{- toYaml .Values.mysqlStandalone.args | nindent 12 }}
+          {{- end }}
+          livenessProbe:
+            exec:
+              command:
+                - mysqladmin
+                - ping
+                - -h
+                - localhost
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+                - mysqladmin
+                - ping
+                - -h
+                - localhost
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 1
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+          {{- if .Values.mysqlStandalone.resources }}
+          resources:
+            {{- toYaml .Values.mysqlStandalone.resources | nindent 12 }}
+          {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        {{- if .Values.mysqlStandalone.persistence.storageClass }}
+        storageClassName: {{ .Values.mysqlStandalone.persistence.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.mysqlStandalone.persistence.size }}
+{{- end }}
+{{- end }}

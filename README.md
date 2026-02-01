@@ -69,10 +69,7 @@ helm install bagisto . -n bagisto --create-namespace
 | cache | object | `{"prefix":"bagisto_cache","store":"redis"}` | Cache Configuration |
 | cache.prefix | string | `"bagisto_cache"` | Cache key prefix |
 | cache.store | string | `"redis"` | Cache store (file, redis, database) |
-| databaseConfig | object | `{"existingSecret":{"name":"","passwordKey":"db-password"},"external":{"enabled":false,"host":"prod-mysql.example.com","name":"bagisto","password":"prodpassword","port":3306,"username":"bagisto"},"host":"{{ .Release.Name }}-mysql","name":"bagisto","password":"bagisto","port":3306,"username":"bagisto"}` | MySQL Database Configuration |
-| databaseConfig.existingSecret | object | `{"name":"","passwordKey":"db-password"}` | Use existing Kubernetes secret for database password (recommended for production) |
-| databaseConfig.existingSecret.name | string | `""` | Name of the secret containing database password |
-| databaseConfig.existingSecret.passwordKey | string | `"db-password"` | Key in the secret containing the password value |
+| databaseConfig | object | `{"external":{"enabled":false,"host":"prod-mysql.example.com","name":"bagisto","password":"prodpassword","port":3306,"username":"bagisto"},"host":"{{ .Release.Name }}-mysql","name":"bagisto","password":"bagisto","port":3306,"rootPassword":"root","username":"bagisto"}` | MySQL Database Configuration |
 | databaseConfig.external | object | `{"enabled":false,"host":"prod-mysql.example.com","name":"bagisto","password":"prodpassword","port":3306,"username":"bagisto"}` | External MySQL configuration (for managed services like AWS RDS) |
 | databaseConfig.external.enabled | bool | `false` | Enable external MySQL |
 | databaseConfig.external.host | string | `"prod-mysql.example.com"` | External MySQL host |
@@ -84,6 +81,7 @@ helm install bagisto . -n bagisto --create-namespace
 | databaseConfig.name | string | `"bagisto"` | Database name |
 | databaseConfig.password | string | `"bagisto"` | Database password (use existingSecret instead for production) |
 | databaseConfig.port | int | `3306` | Database port |
+| databaseConfig.rootPassword | string | `"root"` | MySQL root password (for standalone MySQL deployment) |
 | databaseConfig.username | string | `"bagisto"` | Database username |
 | elasticsearch | object | `{"enabled":false,"esConfig":{"elasticsearch.yml":"xpack.security.enabled: false\ndiscovery.type: single-node\n"},"esJavaOpts":"-Xms256m -Xmx256m","image":"docker.elastic.co/elasticsearch/elasticsearch","imageTag":"9.2.4","replicas":1,"resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"512Mi"}},"volumeClaimTemplate":{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"10Gi"}}}}` | Elasticsearch Configuration (for advanced search functionality) |
 | elasticsearch.enabled | bool | `false` | Enable Elasticsearch deployment |
@@ -109,29 +107,38 @@ helm install bagisto . -n bagisto --create-namespace
 | mail.host | string | `"mailpit"` | SMTP host |
 | mail.mailer | string | `"smtp"` | Mail driver (smtp, sendmail, mailgun, ses) |
 | mail.port | int | `1025` | SMTP port |
-| mysql | object | `{"architecture":"standalone","auth":{"database":"bagisto","existingSecret":"","password":"bagisto","rootPassword":"root","username":"bagisto"},"enabled":true,"primary":{"persistence":{"enabled":true,"size":"10Gi","storageClass":""}}}` | MySQL Subchart Configuration (Bitnami MySQL). Set enabled to false when using external database. |
+| mysql | object | `{"architecture":"standalone","auth":{"database":"bagisto","existingSecret":"","password":"bagisto","rootPassword":"root","username":"bagisto"},"enabled":false,"global":{"imageRegistry":"public.ecr.aws","security":{"allowInsecureImages":true}},"primary":{"persistence":{"enabled":true,"size":"10Gi","storageClass":""}}}` | MySQL Subchart Configuration (Bitnami MySQL). Set enabled to false when using external database. |
 | mysql.architecture | string | `"standalone"` | MySQL architecture (standalone or replication) |
-| mysql.auth | object | `{"database":"bagisto","existingSecret":"","password":"bagisto","rootPassword":"root","username":"bagisto"}` | MySQL authentication configuration |
 | mysql.auth.database | string | `"bagisto"` | MySQL database name |
 | mysql.auth.existingSecret | string | `""` | Use existing secret for MySQL passwords (recommended for production). If set, auth.password and auth.rootPassword are ignored |
 | mysql.auth.password | string | `"bagisto"` | MySQL user password |
 | mysql.auth.rootPassword | string | `"root"` | MySQL root password |
 | mysql.auth.username | string | `"bagisto"` | MySQL user name |
-| mysql.enabled | bool | `true` | Enable MySQL subchart deployment |
+| mysql.enabled | bool | `false` | Enable MySQL subchart deployment |
+| mysql.global | object | `{"imageRegistry":"public.ecr.aws","security":{"allowInsecureImages":true}}` | MySQL authentication configuration |
 | mysql.primary | object | `{"persistence":{"enabled":true,"size":"10Gi","storageClass":""}}` | MySQL primary configuration |
 | mysql.primary.persistence | object | `{"enabled":true,"size":"10Gi","storageClass":""}` | MySQL persistence configuration |
 | mysql.primary.persistence.enabled | bool | `true` | Enable persistence for MySQL |
 | mysql.primary.persistence.size | string | `"10Gi"` | MySQL persistent volume size |
 | mysql.primary.persistence.storageClass | string | `""` | MySQL storage class name |
+| mysqlStandalone | object | `{"args":["--character-set-server=utf8mb4","--collation-server=utf8mb4_unicode_ci"],"image":{"repository":"docker.io/mysql","tag":"9.6.0-oraclelinux9"},"persistence":{"size":"10Gi","storageClass":""},"resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"500m","memory":"512Mi"}}}` | Standalone MySQL Configuration (official MySQL image with ARM64 support). Only deployed when mysql.enabled is false and databaseConfig.external.enabled is false. |
+| mysqlStandalone.args | list | `["--character-set-server=utf8mb4","--collation-server=utf8mb4_unicode_ci"]` | MySQL command line arguments (e.g., for charset configuration) |
+| mysqlStandalone.image | object | `{"repository":"docker.io/mysql","tag":"9.6.0-oraclelinux9"}` | MySQL container image settings |
+| mysqlStandalone.image.repository | string | `"docker.io/mysql"` | MySQL image repository (official MySQL image) |
+| mysqlStandalone.image.tag | string | `"9.6.0-oraclelinux9"` | MySQL image tag |
+| mysqlStandalone.persistence | object | `{"size":"10Gi","storageClass":""}` | MySQL persistence configuration |
+| mysqlStandalone.persistence.size | string | `"10Gi"` | MySQL persistent volume size |
+| mysqlStandalone.persistence.storageClass | string | `""` | MySQL storage class name |
+| mysqlStandalone.resources | object | `{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"500m","memory":"512Mi"}}` | MySQL resource requests and limits |
 | queue | object | `{"connection":"redis"}` | Queue Configuration |
 | queue.connection | string | `"redis"` | Queue connection driver (sync, redis, database) |
-| redis | object | `{"architecture":"standalone","auth":{"enabled":false},"enabled":true,"master":{"command":["redis-server","--save","20","1","--loglevel","warning"],"persistence":{"enabled":true,"size":"2Gi","storageClass":""}}}` | Redis Subchart Configuration (Bitnami Redis). Set enabled to false when using external Redis. |
+| redis | object | `{"architecture":"standalone","auth":{"enabled":false},"commonConfiguration":"# Enable AOF persistence\nappendonly yes\n# Save snapshot every 20 seconds if at least 1 key changed\nsave 20 1\n# Set log level to warning\nloglevel warning","enabled":true,"master":{"persistence":{"enabled":true,"size":"2Gi","storageClass":""}}}` | Redis Subchart Configuration (Bitnami Redis). Set enabled to false when using external Redis. |
 | redis.architecture | string | `"standalone"` | Redis architecture (standalone or replication) |
 | redis.auth | object | `{"enabled":false}` | Redis authentication configuration |
 | redis.auth.enabled | bool | `false` | Enable Redis password authentication |
+| redis.commonConfiguration | string | `"# Enable AOF persistence\nappendonly yes\n# Save snapshot every 20 seconds if at least 1 key changed\nsave 20 1\n# Set log level to warning\nloglevel warning"` | Redis common configuration |
 | redis.enabled | bool | `true` | Enable Redis subchart deployment |
-| redis.master | object | `{"command":["redis-server","--save","20","1","--loglevel","warning"],"persistence":{"enabled":true,"size":"2Gi","storageClass":""}}` | Redis master configuration |
-| redis.master.command | list | `["redis-server","--save","20","1","--loglevel","warning"]` | Redis server command with custom arguments for persistence and logging |
+| redis.master | object | `{"persistence":{"enabled":true,"size":"2Gi","storageClass":""}}` | Redis master configuration |
 | redis.master.persistence | object | `{"enabled":true,"size":"2Gi","storageClass":""}` | Redis persistence configuration |
 | redis.master.persistence.enabled | bool | `true` | Enable persistence for Redis |
 | redis.master.persistence.size | string | `"2Gi"` | Redis persistent volume size |

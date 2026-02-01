@@ -124,17 +124,48 @@ databaseConfig:
   username: bagisto
   # -- Database password (use existingSecret instead for production)
   password: bagisto
+  # -- MySQL root password (for standalone MySQL deployment)
+  rootPassword: root
   # -- Use existing Kubernetes secret for database password (recommended for production)
-  existingSecret:
-    # -- Name of the secret containing database password
-    name: ""
-    # -- Key in the secret containing the password value
-    passwordKey: "db-password"
+  # existingSecret:
+  #   # -- Name of the secret containing database password
+  #   name: ""
+  #   # -- Key in the secret containing the password value
+  #   passwordKey: "db-password"
+  #   # -- Key in the secret containing the root password value
+  #   rootPasswordKey: "mysql-root-password"
+
+# -- Standalone MySQL Configuration (official MySQL image with ARM64 support). Only deployed when mysql.enabled is false and databaseConfig.external.enabled is false.
+mysqlStandalone:
+  # -- MySQL container image settings
+  image:
+    # -- MySQL image repository (official MySQL image)
+    repository: docker.io/mysql
+    # -- MySQL image tag
+    tag: "9.6.0-oraclelinux9"
+  # -- MySQL command line arguments (e.g., for charset configuration)
+  args:
+    - --character-set-server=utf8mb4
+    - --collation-server=utf8mb4_unicode_ci
+  # -- MySQL persistence configuration
+  persistence:
+    # -- MySQL persistent volume size
+    size: 10Gi
+    # -- MySQL storage class name
+    storageClass: ""
+  # -- MySQL resource requests and limits
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
 
 # -- MySQL Subchart Configuration (Bitnami MySQL). Set enabled to false when using external database.
 mysql:
   # -- Enable MySQL subchart deployment
-  enabled: true
+  enabled: false  # can't be used in OCI OKE due to lack of ARM64 support in public.ecr.aws
   # -- MySQL authentication configuration
   global:
     imageRegistry: public.ecr.aws
