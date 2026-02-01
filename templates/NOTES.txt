@@ -5,11 +5,6 @@ Your Bagisto e-commerce platform has been deployed.
 1. Get the application service:
    kubectl get svc {{ include "bagisto.fullname" . }} -n {{ .Release.Namespace }}
 
-   Note: Create an HTTPRoute pointing to this service to expose it via Gateway API.
-{{- else }}
-   Using external MySQL at {{ .Values.database.host }}
-{{- end }}
-
 3. Cache Status:
 {{- if .Values.redis.enabled }}
    Redis is deployed as a subchart ({{ .Release.Name }}-redis-master)
