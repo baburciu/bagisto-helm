@@ -63,12 +63,10 @@ RUN if [ "$INSTALL_STRIPE_GATEWAY" = "true" ]; then \
         composer require codenteq/stripe-payment-gateway:"${STRIPE_GATEWAY_VERSION}" --no-interaction; \
     fi
 
-# Run optimization commands (skip view:cache as it may fail with extensions)
+# Run optimization commands
+# NOTE: Do NOT run config:cache or route:cache here - they bake in build-time
+# environment vars. These should be set at container startup if needed.
 RUN php artisan optimize:clear || true
-RUN php artisan config:cache || true
-RUN php artisan route:cache || true
-# Skip view:cache - will be done on first run
-# RUN php artisan view:cache || true
 
 # ============================================
 # Frontend build stage with Node 20 (better Vite compatibility)

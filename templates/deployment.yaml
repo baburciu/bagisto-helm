@@ -63,6 +63,10 @@ spec:
               value: {{ .Values.app.env | quote }}
             - name: APP_DEBUG
               value: {{ .Values.app.debug | quote }}
+            {{- if .Values.app.debugAllowedIps }}
+            - name: APP_DEBUG_ALLOWED_IPS
+              value: {{ .Values.app.debugAllowedIps | quote }}
+            {{- end }}
             - name: APP_KEY
               {{- if ((.Values.app).existingSecret).name }}
               valueFrom:
@@ -74,10 +78,14 @@ spec:
               {{- end }}
             - name: APP_URL
               value: {{ .Values.app.url | quote }}
+            - name: APP_ADMIN_URL
+              value: {{ .Values.app.adminUrl | default "admin" | quote }}
             - name: APP_TIMEZONE
               value: {{ .Values.app.timezone | quote }}
             - name: APP_LOCALE
               value: {{ .Values.app.locale | quote }}
+            - name: APP_FALLBACK_LOCALE
+              value: {{ .Values.app.fallbackLocale | default "en" | quote }}
             - name: APP_CURRENCY
               value: {{ .Values.app.currency | quote }}
 
@@ -136,12 +144,20 @@ spec:
               value: {{ .Values.session.driver | quote }}
             - name: SESSION_LIFETIME
               value: {{ .Values.session.lifetime | quote }}
+            - name: SESSION_ENCRYPT
+              value: {{ .Values.session.encrypt | default "false" | quote }}
+            - name: SESSION_PATH
+              value: {{ .Values.session.path | default "/" | quote }}
+            - name: SESSION_DOMAIN
+              value: {{ .Values.session.domain | default "" | quote }}
 
             # Cache Configuration
             - name: CACHE_STORE
               value: {{ .Values.cache.store | quote }}
             - name: CACHE_PREFIX
               value: {{ .Values.cache.prefix | quote }}
+            - name: RESPONSE_CACHE_ENABLED
+              value: {{ .Values.cache.responseEnabled | default "false" | quote }}
 
             # Queue Configuration
             - name: QUEUE_CONNECTION
@@ -169,6 +185,12 @@ spec:
               value: {{ .Values.mail.host | quote }}
             - name: MAIL_PORT
               value: {{ .Values.mail.port | quote }}
+            - name: MAIL_USERNAME
+              value: {{ .Values.mail.username | default "" | quote }}
+            - name: MAIL_PASSWORD
+              value: {{ .Values.mail.password | default "" | quote }}
+            - name: MAIL_ENCRYPTION
+              value: {{ .Values.mail.encryption | default "null" | quote }}
             - name: MAIL_FROM_ADDRESS
               value: {{ .Values.mail.from.address | quote }}
             - name: MAIL_FROM_NAME
@@ -182,8 +204,24 @@ spec:
             # Logging
             - name: LOG_CHANNEL
               value: "stack"
+            {{- if (.Values.logging).stack }}
+            - name: LOG_STACK
+              value: {{ .Values.logging.stack | default "single" | quote }}
+            {{- end }}
+            {{- if (.Values.logging).deprecationsChannel }}
+            - name: LOG_DEPRECATIONS_CHANNEL
+              value: {{ .Values.logging.deprecationsChannel | default "null" | quote }}
+            {{- end }}
             - name: LOG_LEVEL
               value: "info"
+
+            # Frontend Configuration
+            - name: VITE_APP_NAME
+              value: {{ .Values.app.name | quote }}
+            - name: VITE_HOST
+              value: {{ (.Values.vite).host | default "localhost" | quote }}
+            - name: VITE_PORT
+              value: {{ (.Values.vite).port | default "" | quote }}
           volumeMounts:
             - name: bagisto-storage
               mountPath: /var/www/html/storage

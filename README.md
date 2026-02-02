@@ -1,6 +1,6 @@
 # bagisto
 
-A Helm chart for deploying Bagisto on Kubernetes
+A Helm chart for deploying [Bagisto](https://github.com/bagisto/bagisto) on Kubernetes
 
 ![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![AppVersion: 1.0.0](https://img.shields.io/badge/AppVersion-1.0.0-informational?style=flat-square)
 
@@ -71,7 +71,7 @@ helm install bagisto . -n bagisto --create-namespace
 | cache | object | `{"prefix":"bagisto_cache","store":"redis"}` | Cache Configuration |
 | cache.prefix | string | `"bagisto_cache"` | Cache key prefix |
 | cache.store | string | `"redis"` | Cache store (file, redis, database) |
-| databaseConfig | object | `{"external":{"enabled":false,"host":"prod-mysql.example.com","name":"bagisto","password":"prodpassword","port":3306,"username":"bagisto"},"host":"{{ .Release.Name }}-mysql","name":"bagisto","password":"bagisto","port":3306,"rootPassword":"root","username":"bagisto"}` | MySQL Database Configuration |
+| databaseConfig | object | `{"external":{"enabled":false,"host":"prod-mysql.example.com","name":"bagisto","password":"prodpassword","port":3306,"username":"bagisto"},"host":"{{ include \"bagisto.fullname\" . }}-mysql","name":"bagisto","password":"bagisto","port":3306,"rootPassword":"root","username":"bagisto"}` | MySQL Database Configuration |
 | databaseConfig.external | object | `{"enabled":false,"host":"prod-mysql.example.com","name":"bagisto","password":"prodpassword","port":3306,"username":"bagisto"}` | External MySQL configuration (for managed services like AWS RDS) |
 | databaseConfig.external.enabled | bool | `false` | Enable external MySQL |
 | databaseConfig.external.host | string | `"prod-mysql.example.com"` | External MySQL host |
@@ -79,7 +79,7 @@ helm install bagisto . -n bagisto --create-namespace
 | databaseConfig.external.password | string | `"prodpassword"` | External MySQL password (use existingSecret instead for production) |
 | databaseConfig.external.port | int | `3306` | External MySQL port |
 | databaseConfig.external.username | string | `"bagisto"` | External MySQL username |
-| databaseConfig.host | string | `"{{ .Release.Name }}-mysql"` | Database host (supports template syntax) |
+| databaseConfig.host | string | `"{{ include \"bagisto.fullname\" . }}-mysql"` | Database host (supports template syntax) |
 | databaseConfig.name | string | `"bagisto"` | Database name |
 | databaseConfig.password | string | `"bagisto"` | Database password (use existingSecret instead for production) |
 | databaseConfig.port | int | `3306` | Database port |
