@@ -1,0 +1,67 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "bagisto.fullname" . }}-migrate
+  labels:
+    app: {{ include "bagisto.name" . }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        app: {{ include "bagisto.name" . }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              echo "Waiting for database to be ready..."
+              until php artisan db:show > /dev/null 2>&1; do
+                echo "Database not ready, waiting 5 seconds..."
+                sleep 5
+              done
+              echo "Database ready, running migrations..."
+              php artisan migrate --force
+              echo "Migrations completed successfully"
+          env:
+            # Database Configuration
+            - name: DB_CONNECTION
+              value: "mysql"
+            - name: DB_HOST
+              value: {{ tpl .Values.databaseConfig.host . | quote }}
+            - name: DB_PORT
+              value: {{ .Values.databaseConfig.port | quote }}
+            - name: DB_DATABASE
+              value: {{ .Values.databaseConfig.name | quote }}
+            - name: DB_USERNAME
+              value: {{ .Values.databaseConfig.username | quote }}
+            - name: DB_PASSWORD
+              {{- if ((.Values.databaseConfig).existingSecret).name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.databaseConfig.existingSecret.name }}
+                  key: {{ .Values.databaseConfig.existingSecret.passwordKey }}
+              {{- else }}
+              value: {{ .Values.databaseConfig.password | quote }}
+              {{- end }}
+            # Application key (required for Laravel)
+            - name: APP_KEY
+              {{- if ((.Values.app).existingSecret).name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.app.existingSecret.name }}
+                  key: {{ .Values.app.existingSecret.key }}
+              {{- else }}
+              value: {{ .Values.app.key | quote }}
+              {{- end }}
+            - name: APP_ENV
+              value: {{ .Values.app.env | quote }}

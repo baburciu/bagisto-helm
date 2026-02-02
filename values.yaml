@@ -1,14 +1,14 @@
 ## Bagisto Application configuration
 
 # -- Number of Bagisto pod replicas
-replicaCount: 1
+replicaCount: 2
 
 # -- Container image settings
 image:
   # -- Bagisto container image repository
-  repository: docker.io/webkul/bagisto
+  repository: docker.io/bogdanadrianburciu/bagisto
   # -- Bagisto container image tag
-  tag: 2.3.11
+  tag: latest
   # -- Image pull policy
   pullPolicy: IfNotPresent
 
