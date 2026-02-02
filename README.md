@@ -15,6 +15,8 @@ A Helm chart for deploying [Bagisto](https://github.com/bagisto/bagisto) on Kube
 - **Persistent Storage**: Configurable storage for application data, database, and search index
 - **Complete Laravel/Bagisto Configuration**: All environment variables pre-configured
 
+See [architecture doc](./ARCHITECTURE.md).
+
 ## Prerequisites
 
 - Kubernetes
@@ -56,9 +58,9 @@ helm install bagisto . -n bagisto --create-namespace
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| app | object | `{"currency":"EUR","debug":false,"env":"production","existingSecret":{"keyKey":"app-key","name":""},"key":"base64:CHANGE_THIS_KEY_RUN_php_artisan_key_generate","locale":"en","name":"Bagisto","timezone":"UTC","url":"http://localhost"}` | Bagisto application configuration |
+| app | object | `{"currency":"EUR","debug":true,"env":"production","existingSecret":{"keyKey":"app-key","name":""},"key":"base64:CHANGE_THIS_KEY_RUN_php_artisan_key_generate","locale":"en","name":"Bagisto","timezone":"UTC","url":"http://localhost"}` | Bagisto application configuration |
 | app.currency | string | `"EUR"` | Application currency code |
-| app.debug | bool | `false` | Enable debug mode |
+| app.debug | bool | `true` | Enable debug mode |
 | app.env | string | `"production"` | Application environment (local, production) |
 | app.existingSecret | object | `{"keyKey":"app-key","name":""}` | Use existing Kubernetes secret for APP_KEY (recommended for production) |
 | app.existingSecret.keyKey | string | `"app-key"` | Key in the secret containing the APP_KEY value |
@@ -94,10 +96,10 @@ helm install bagisto . -n bagisto --create-namespace
 | elasticsearch.replicas | int | `1` | Number of Elasticsearch replicas |
 | elasticsearch.resources | object | `{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"512Mi"}}` | Elasticsearch resource requests and limits |
 | elasticsearch.volumeClaimTemplate | object | `{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"10Gi"}}}` | Elasticsearch persistent volume configuration |
-| image | object | `{"pullPolicy":"IfNotPresent","repository":"docker.io/webkul/bagisto","tag":"2.3.11"}` | Container image settings |
+| image | object | `{"pullPolicy":"IfNotPresent","repository":"docker.io/bogdanadrianburciu/bagisto","tag":"latest"}` | Container image settings |
 | image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
-| image.repository | string | `"docker.io/webkul/bagisto"` | Bagisto container image repository |
-| image.tag | string | `"2.3.11"` | Bagisto container image tag |
+| image.repository | string | `"docker.io/bogdanadrianburciu/bagisto"` | Bagisto container image repository |
+| image.tag | string | `"latest"` | Bagisto container image tag |
 | mail | object | `{"admin":{"address":"admin@example.com","name":"Bagisto Admin"},"enabled":false,"from":{"address":"shop@example.com","name":"Bagisto Shop"},"host":"mailpit","mailer":"smtp","port":1025}` | Mail Configuration |
 | mail.admin | object | `{"address":"admin@example.com","name":"Bagisto Admin"}` | Admin email configuration |
 | mail.admin.address | string | `"admin@example.com"` | Admin email address |

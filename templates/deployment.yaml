@@ -25,12 +25,17 @@ spec:
               set -e
               echo "Copying public files to shared volume..."
               if [ -d "/var/www/html/public" ]; then
-                cp -rp /var/www/html/public/. /public-shared/
+                cp -r /var/www/html/public/. /public-shared/
                 echo "Public files copied successfully ($(ls -A /public-shared | wc -l) items)"
               else
                 echo "ERROR: /var/www/html/public directory not found!"
                 exit 1
               fi
+
+              echo "Creating storage symlink..."
+              rm -f /public-shared/storage
+              ln -sf /var/www/html/storage/app/public /public-shared/storage
+              echo "Storage symlink created: $(ls -la /public-shared/storage)"
 
               echo "Setting up storage directory structure..."
               mkdir -p /storage-shared/app/public
@@ -238,6 +243,9 @@ spec:
               mountPath: /etc/nginx/conf.d
             - name: bagisto-public
               mountPath: /var/www/html/public
+              readOnly: true
+            - name: bagisto-storage
+              mountPath: /var/www/html/storage
               readOnly: true
           livenessProbe:
             httpGet:
