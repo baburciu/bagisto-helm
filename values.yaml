@@ -1,7 +1,7 @@
 ## Bagisto Application configuration
 
 # -- Number of Bagisto pod replicas
-replicaCount: 2
+replicaCount: 1
 
 # -- Container image settings
 image:
@@ -37,7 +37,7 @@ app:
   # -- Application environment (local, production)
   env: "production"
   # -- Enable debug mode
-  debug: false
+  debug: true
   # -- Laravel APP_KEY (base64-encoded 32-byte random string). Generate with: echo "base64:$(openssl rand -base64 32)"
   key: "base64:CHANGE_THIS_KEY_RUN_php_artisan_key_generate"
   # -- Application URL

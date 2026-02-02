@@ -101,6 +101,9 @@ COPY --from=frontend-builder /app/public /var/www/html/public
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/public
 RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
+# Run container as www-data user
+USER www-data
+
 # Expose port 9000 for php-fpm
 EXPOSE 9000
 
