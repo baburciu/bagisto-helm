@@ -35,6 +35,9 @@ RUN docker-php-ext-configure intl && docker-php-ext-install intl
 # other extensions install
 RUN docker-php-ext-install bcmath calendar exif gmp mysqli pdo pdo_mysql zip
 
+# Redis extension install
+RUN pecl install redis && docker-php-ext-enable redis
+
 # installing composer
 COPY --from=composer:2.7 /usr/bin/composer /usr/local/bin/composer
 
