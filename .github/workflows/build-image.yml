@@ -12,7 +12,7 @@ on:
       bagisto_version:
         description: 'Bagisto https://github.com/bagisto/bagisto version (e.g., v2.3.11)'
         required: true
-        default: 'v2.3.11'
+        default: 'v2.3.11-ro-language'
       stripe_version:
         description: 'Stripe Payment Gateway https://github.com/codenteq/stripe-payment-gateway# version (e.g., v1.5.3 or * for latest)'
         required: true
@@ -29,7 +29,7 @@ on:
 env:
   REGISTRY: docker.io
   IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/bagisto
-  BAGISTO_VERSION: v2.3.11
+  BAGISTO_VERSION: v2.3.11-ro-language  # only used as a fallback in non-dispatch triggers
 
 jobs:
   build-and-push:
