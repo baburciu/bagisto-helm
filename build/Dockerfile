@@ -47,7 +47,7 @@ ARG STRIPE_GATEWAY_VERSION="*"
 ARG INSTALL_STRIPE_GATEWAY="true"
 
 # Download Bagisto from GitHub to temporary location
-RUN git clone --depth 1 --branch ${BAGISTO_VERSION} https://github.com/bagisto/bagisto.git /tmp/bagisto
+RUN git clone --depth 1 --branch ${BAGISTO_VERSION} https://github.com/baburciu/bagisto.git /tmp/bagisto
 
 # Set working directory and move Bagisto files
 WORKDIR /var/www/html
