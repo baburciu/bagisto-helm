@@ -1,61 +1,47 @@
 # main image — FrankenPHP (Caddy + embedded PHP, no separate web server needed)
-FROM dunglas/frankenphp:1-php8.3 as base
+FROM dunglas/frankenphp:1.11.2-php8.3 AS base
 
 # FrankenPHP uses /app by default; override to match Laravel conventions
 WORKDIR /var/www/html
 
-# installing main dependencies
+# Install all system dependencies and PHP extension build deps in one layer
 RUN apt-get update && apt-get install -y \
     git \
     ffmpeg \
-    procps
-
-# installing unzip dependencies
-RUN apt-get install -y \
+    procps \
     libzip-dev \
     zlib1g-dev \
-    unzip
-
-# gd extension configure and install
-RUN apt-get install -y \
+    unzip \
     libfreetype6-dev \
     libicu-dev \
     libgmp-dev \
     libjpeg62-turbo-dev \
     libpng-dev \
     libwebp-dev \
-    libxpm-dev
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp && docker-php-ext-install gd
+    libxpm-dev \
+    libmagickwand-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# imagick extension configure and install
-RUN apt-get install -y libmagickwand-dev \
-    && pecl install imagick \
-    && docker-php-ext-enable imagick
+# Configure and install PHP extensions
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
+    && docker-php-ext-configure intl \
+    && docker-php-ext-install gd intl bcmath calendar exif gmp mysqli pdo pdo_mysql zip
 
-# intl extension configure and install
-RUN docker-php-ext-configure intl && docker-php-ext-install intl
+# Install PECL extensions (version-pinned for reproducibility)
+RUN pecl install imagick-3.8.1 redis-6.3.0 \
+    && docker-php-ext-enable imagick redis
 
-# other extensions install
-RUN docker-php-ext-install bcmath calendar exif gmp mysqli pdo pdo_mysql zip
+# Install Composer (version-pinned)
+COPY --from=composer:2.7.9 /usr/bin/composer /usr/local/bin/composer
 
-# Redis extension install
-RUN pecl install redis && docker-php-ext-enable redis
-
-# installing composer
-COPY --from=composer:2.7 /usr/bin/composer /usr/local/bin/composer
-
-# Build arguments for versioning
+# Download Bagisto source — ARG declared here so all layers above (system deps,
+# PHP extensions, Composer) are cached regardless of version changes
 ARG BAGISTO_VERSION="v2.3.6"
-ARG STRIPE_GATEWAY_VERSION="*"
-ARG INSTALL_STRIPE_GATEWAY="true"
-
-# Download Bagisto from GitHub to temporary location
 RUN git clone --depth 1 --branch ${BAGISTO_VERSION} https://github.com/baburciu/bagisto.git /tmp/bagisto
 
-# Set working directory and move Bagisto files
-WORKDIR /var/www/html
-RUN mv /tmp/bagisto/* /tmp/bagisto/.* /var/www/html/ 2>/dev/null || true && \
-    rm -rf /tmp/bagisto
+# Move Bagisto files into place
+RUN mv /tmp/bagisto/* /tmp/bagisto/.* /var/www/html/ 2>/dev/null || true \
+    && rm -rf /tmp/bagisto
 
 # Remove .env file - we'll use environment variables from Kubernetes
 RUN rm -f /var/www/html/.env
@@ -63,7 +49,10 @@ RUN rm -f /var/www/html/.env
 # Install Bagisto dependencies
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# Install Stripe Payment Gateway (version controlled)
+# Install Stripe Payment Gateway — ARGs declared here so changing the Stripe
+# version does NOT invalidate the git clone + composer install layers above
+ARG STRIPE_GATEWAY_VERSION="*"
+ARG INSTALL_STRIPE_GATEWAY="true"
 RUN if [ "$INSTALL_STRIPE_GATEWAY" = "true" ]; then \
         echo "Installing Stripe Payment Gateway version: $STRIPE_GATEWAY_VERSION"; \
         composer require codenteq/stripe-payment-gateway:"${STRIPE_GATEWAY_VERSION}" --no-interaction; \
@@ -75,43 +64,42 @@ RUN if [ "$INSTALL_STRIPE_GATEWAY" = "true" ]; then \
 RUN php artisan optimize:clear || true
 
 # ============================================
-# Frontend build stage with Node 20 (better Vite compatibility)
+# Frontend build stage (version-pinned Node)
 # ============================================
-FROM node:20-slim as frontend-builder
+FROM node:20.20.0-slim AS frontend-builder
 
 WORKDIR /app
 
-# Copy package files and source
+# Copy package files first for better layer caching —
+# npm install layer is reused when only application source code changes
 COPY --from=base /var/www/html/package*.json ./
+
+# Install dependencies (no lockfile in upstream Bagisto, so npm ci is not possible)
+RUN npm install --no-audit --no-fund
+
+# Copy full application source and build frontend assets
 COPY --from=base /var/www/html /app
 
-# Ensure package.json is configured for ESM
+# Ensure package.json is configured for ESM (re-apply after full copy)
 RUN node -e "const pkg = require('./package.json'); pkg.type = 'module'; require('fs').writeFileSync('./package.json', JSON.stringify(pkg, null, 2));"
 
-# Install and build with ESM support
-RUN npm install --no-audit --no-fund
 RUN npm run build
 
 # ============================================
 # Final stage
 # ============================================
-FROM base as final
+FROM base AS final
 
 # Copy built assets from frontend builder
 COPY --from=frontend-builder /app/public /var/www/html/public
 
-# Create the public/storage → storage/app/public symlink so uploaded
-# files are web-accessible. The target directory is created at runtime
-# by the init container on the storage PVC.
-RUN ln -sf /var/www/html/storage/app/public /var/www/html/public/storage
-
-# Ensure Caddy data/config dirs are writable by www-data (for non-root operation)
-RUN mkdir -p /data/caddy /config/caddy \
-    && chown -R www-data:www-data /data /config
-
-# Set proper permissions
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/public
-RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+# Create the public/storage → storage/app/public symlink, set up Caddy dirs,
+# and fix permissions — all in one layer to reduce image size
+RUN ln -sf /var/www/html/storage/app/public /var/www/html/public/storage \
+    && mkdir -p /data/caddy /config/caddy \
+    && chown -R www-data:www-data /data /config \
+        /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/public \
+    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
 # Run container as www-data user
 USER www-data
