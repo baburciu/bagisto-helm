@@ -1,5 +1,8 @@
-# main image
-FROM php:8.3-fpm as base
+# main image — FrankenPHP (Caddy + embedded PHP, no separate web server needed)
+FROM dunglas/frankenphp:1-php8.3 as base
+
+# FrankenPHP uses /app by default; override to match Laravel conventions
+WORKDIR /var/www/html
 
 # installing main dependencies
 RUN apt-get update && apt-get install -y \
@@ -97,6 +100,15 @@ FROM base as final
 # Copy built assets from frontend builder
 COPY --from=frontend-builder /app/public /var/www/html/public
 
+# Create the public/storage → storage/app/public symlink so uploaded
+# files are web-accessible. The target directory is created at runtime
+# by the init container on the storage PVC.
+RUN ln -sf /var/www/html/storage/app/public /var/www/html/public/storage
+
+# Ensure Caddy data/config dirs are writable by www-data (for non-root operation)
+RUN mkdir -p /data/caddy /config/caddy \
+    && chown -R www-data:www-data /data /config
+
 # Set proper permissions
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/public
 RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
@@ -104,7 +116,7 @@ RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 # Run container as www-data user
 USER www-data
 
-# Expose port 9000 for php-fpm
-EXPOSE 9000
+# FrankenPHP serves HTTP on port 8080 (non-privileged for www-data)
+EXPOSE 8080
 
-CMD ["php-fpm"]
+CMD ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile"]

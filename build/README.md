@@ -54,11 +54,11 @@ This Dockerfile creates a production-ready Bagisto image with optional extension
 
 ## Features
 
-- PHP 8.3 with FPM
+- [FrankenPHP](https://frankenphp.dev) (Caddy + embedded PHP 8.3) — single process serves both static files and PHP
 - All required PHP extensions (GD, Imagick, Intl, etc.)
 - Composer 2.7
-- Node.js 23
-- Optimized for production (caching, permissions, etc.)
+- Node.js 20 (frontend build stage)
+- Optimized for production (caching, permissions, non-root operation)
 - Version-controlled extension installation
 
 ## Building the Image

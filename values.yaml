@@ -39,22 +39,13 @@ resources:
     memory: "512Mi"
     cpu: "1000m"
 
-# -- Resource requests and limits for the Nginx sidecar container
-nginxResources:
-  requests:
-    memory: "64Mi"
-    cpu: "50m"
-  limits:
-    memory: "128Mi"
-    cpu: "250m"
-
 # -- Bagisto application configuration
 app:
   # -- Application name
   name: "Bagisto"
   # -- Application environment (local, production)
   env: "production"
-  # -- Enable debug mode (should be false in production)
+  # -- Enable debug mode
   debug: false
   # -- Laravel APP_KEY (base64-encoded 32-byte random string). Generate with: echo "base64:$(openssl rand -base64 32)"
   key: "base64:CHANGE_THIS_KEY_RUN_php_artisan_key_generate"

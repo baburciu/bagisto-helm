@@ -18,7 +18,7 @@ spec:
         # GID 33 = www-data; ensures mounted volumes are group-owned by www-data
         fsGroup: 33
       initContainers:
-        - name: copy-public-files
+        - name: init-storage
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
@@ -26,20 +26,6 @@ spec:
             - -c
             - |
               set -e
-              echo "Copying public files to shared volume..."
-              if [ -d "/var/www/html/public" ]; then
-                cp -r /var/www/html/public/. /public-shared/
-                echo "Public files copied successfully ($(ls -A /public-shared | wc -l) items)"
-              else
-                echo "ERROR: /var/www/html/public directory not found!"
-                exit 1
-              fi
-
-              echo "Creating storage symlink..."
-              rm -f /public-shared/storage
-              ln -sf /var/www/html/storage/app/public /public-shared/storage
-              echo "Storage symlink created: $(ls -la /public-shared/storage)"
-
               echo "Setting up storage directory structure..."
               mkdir -p /storage-shared/app/public
               mkdir -p /storage-shared/framework/cache/data
@@ -48,10 +34,7 @@ spec:
               mkdir -p /storage-shared/framework/views
               mkdir -p /storage-shared/logs
               echo "Storage directory structure created"
-
           volumeMounts:
-            - name: bagisto-public
-              mountPath: /public-shared
             - name: bagisto-storage
               mountPath: /storage-shared
       containers:
@@ -59,8 +42,8 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
-            - containerPort: 9000
-              name: php-fpm
+            - containerPort: 8080
+              name: http
           env:
             # Application Configuration
             - name: APP_NAME
@@ -235,45 +218,24 @@ spec:
           volumeMounts:
             - name: bagisto-storage
               mountPath: /var/www/html/storage
-            - name: bagisto-public
-              mountPath: /var/www/html/public
-
-        - name: nginx
-          image: docker.io/nginx:1.28.1-alpine
-          ports:
-            - containerPort: 80
-              name: http
-          volumeMounts:
-            - name: nginx-config
-              mountPath: /etc/nginx/conf.d
-            - name: bagisto-public
-              mountPath: /var/www/html/public
-              readOnly: true
-            - name: bagisto-storage
-              mountPath: /var/www/html/storage
-              readOnly: true
-          {{- if .Values.nginxResources }}
-          resources:
-            {{- toYaml .Values.nginxResources | nindent 12 }}
-          {{- end }}
+            - name: caddyfile
+              mountPath: /etc/caddy
           livenessProbe:
             httpGet:
               path: /health
-              port: 80
+              port: 8080
             initialDelaySeconds: 10
             periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /health
-              port: 80
+              port: 8080
             initialDelaySeconds: 5
             periodSeconds: 5
       volumes:
-        - name: nginx-config
+        - name: caddyfile
           configMap:
-            name: {{ include "bagisto.fullname" . }}-nginx
-        - name: bagisto-public
-          emptyDir: {}
+            name: {{ include "bagisto.fullname" . }}-caddyfile
         - name: bagisto-storage
           persistentVolumeClaim:
             claimName: {{ include "bagisto.fullname" . }}-storage

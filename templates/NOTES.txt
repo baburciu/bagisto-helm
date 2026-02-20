@@ -22,8 +22,8 @@ Your Bagisto e-commerce platform has been deployed.
 4. Check deployment status:
    kubectl get pods -n {{ .Release.Namespace }}
 
-5. Access logs:
-   kubectl logs -f deployment/{{ include "bagisto.fullname" . }} -n {{ .Release.Namespace }}
+5. Access logs (FrankenPHP serves both HTTP and PHP):
+   kubectl logs -f deployment/{{ include "bagisto.fullname" . }} -c bagisto -n {{ .Release.Namespace }}
 
 For more information, visit: https://bagisto.com/en/docs/
 

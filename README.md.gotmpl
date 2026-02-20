@@ -5,8 +5,8 @@
 
 ## Features
 
+- **FrankenPHP**: Single-container architecture using [FrankenPHP](https://frankenphp.dev) (Caddy + embedded PHP) — no separate web server sidecar needed
 - **High Availability**: Supports horizontal scaling with multiple replicas
-- **Nginx + PHP-FPM Architecture**: Uses Nginx sidecar container to serve HTTP traffic and proxy PHP requests to PHP-FPM
 - **Kubernetes Native**: Designed for K8s with Gateway API support (HTTPRoute created separately)
 - **Managed Services Support**: Can use external MySQL and Redis (commented examples in values.yaml)
 - **Subcharts**: Includes MySQL, Redis, and Elasticsearch as dependencies

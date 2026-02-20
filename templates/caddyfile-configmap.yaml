@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "bagisto.fullname" . }}-caddyfile
+  labels:
+    app: {{ include "bagisto.name" . }}
+data:
+  Caddyfile: |
+    {
+        frankenphp
+        order php_server before file_server
+        http_port 8080
+        auto_https off
+        admin off
+    }
+
+    :8080 {
+        root * /var/www/html/public
+
+        # Security headers
+        header {
+            X-Frame-Options "SAMEORIGIN"
+            X-Content-Type-Options "nosniff"
+            -Server
+            -X-Powered-By
+        }
+
+        # Health check endpoint
+        handle /health {
+            respond "healthy" 200
+        }
+
+        # Upload size limit
+        request_body {
+            max_size 100MB
+        }
+
+        # Compression
+        encode zstd gzip
+
+        # Deny access to hidden files (except .well-known)
+        @hidden path */.*
+        @notWellKnown not path /.well-known/*
+        handle @hidden {
+            handle @notWellKnown {
+                respond 403
+            }
+        }
+
+        php_server
+    }

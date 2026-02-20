@@ -4,7 +4,7 @@ This document explains the containerized architecture of the Bagisto e-commerce 
 
 ## Overview
 
-The deployment uses a **sidecar pattern** with an **init container** to achieve separation of concerns, proper file sharing, and production-grade web serving capabilities.
+The deployment uses [FrankenPHP](https://frankenphp.dev) — a modern PHP application server built on [Caddy](https://caddyserver.com) — to serve the entire application from a single container. FrankenPHP embeds the PHP runtime directly into Caddy, eliminating the need for a separate web server sidecar (e.g., Nginx) and the FastCGI protocol between them.
 
 ## Container Architecture
 
@@ -15,128 +15,138 @@ The deployment uses a **sidecar pattern** with an **init container** to achieve 
 │                                                             │
 │  ┌─────────────────┐                                        │
 │  │  Init Container │  (runs first, completes, then exits)   │
-│  │ copy-public-    │                                        │
-│  │     files       │                                        │
+│  │  init-storage   │                                        │
 │  └─────────────────┘                                        │
 │                                                             │
-│  ┌─────────────────┐    ┌─────────────────┐                 │
-│  │ Main Container  │    │ Sidecar Container│                │
-│  │    bagisto      │    │     nginx       │                 │
-│  │   (PHP-FPM)     │    │  (Web Server)    │                │
-│  │   Port: 9000    │    │   Port: 80      │                 │
-│  └─────────────────┘    └─────────────────┘                 │
+│  ┌─────────────────────────────────────────────┐            │
+│  │           Main Container                    │            │
+│  │             bagisto                         │            │
+│  │          (FrankenPHP)                       │            │
+│  │                                             │            │
+│  │   Caddy (HTTP)  ←──→  Embedded PHP Runtime  │            │
+│  │    Port: 8080                               │            │
+│  └─────────────────────────────────────────────┘            │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### Why FrankenPHP instead of PHP-FPM + Nginx?
+
+The traditional PHP-on-Kubernetes pattern uses PHP-FPM as a backend with Nginx as a sidecar proxy, connected via the FastCGI protocol over a shared emptyDir volume. This requires:
+
+- An init container to copy public files from the PHP image into a shared volume
+- An emptyDir volume for Nginx to serve static files
+- A ConfigMap for Nginx configuration
+- Symlink recreation on every pod restart
+
+FrankenPHP simplifies this by embedding PHP directly into the Caddy web server:
+
+| Aspect | PHP-FPM + Nginx (before) | FrankenPHP (now) |
+|--------|--------------------------|-------------------|
+| Containers per pod | 3 (init + PHP-FPM + Nginx) | 2 (init + FrankenPHP) |
+| Volumes | 3 (emptyDir + PVC + ConfigMap) | 2 (PVC + ConfigMap) |
+| Static file serving | Nginx reads from shared emptyDir | Caddy serves from image filesystem |
+| PHP execution | FastCGI over TCP (port 9000) | In-process (no network overhead) |
+| Symlink handling | Recreated by init container | Baked into the Docker image at build time |
+
 ## Container Responsibilities
 
-### 1. Init Container: `copy-public-files`
-**Purpose**: Prepares shared volumes with static files and creates proper symlinks
+### 1. Init Container: `init-storage`
+**Purpose**: Creates the Laravel storage directory structure on the persistent volume
 
 **Image**: Same as main Bagisto container to ensure consistency
 
 **Tasks**:
-- Copies `/var/www/html/public/*` from Docker image to shared `emptyDir` volume
-- Creates Laravel storage directory structure in storage PVC
-- Recreates the storage symlink: `/public/storage → /var/www/html/storage/app/public`
-- Sets proper ownership and permissions
+- Creates Laravel storage subdirectories on the PVC: `app/public`, `framework/cache/data`, `framework/sessions`, `framework/testing`, `framework/views`, `logs`
 
 **Volume Mounts**:
-- `bagisto-public` (emptyDir) → `/public-shared` (write)
 - `bagisto-storage` (PVC) → `/storage-shared` (write)
 
 ### 2. Main Container: `bagisto`
-**Purpose**: Runs the Laravel/Bagisto PHP application via PHP-FPM
+**Purpose**: Serves the entire application — both static files and PHP — via FrankenPHP
 
 **Image**: Custom multi-architecture Bagisto image with:
-- PHP 8.3-FPM
-- Redis extension
+- FrankenPHP 1.x (Caddy + embedded PHP 8.3)
+- Redis, GD, Imagick, Intl, and other PHP extensions
 - All PHP dependencies (Composer packages)
 - Compiled frontend assets (Vite build)
-- No `.env` file (uses environment variables)
+- Storage symlink (`public/storage → storage/app/public`) baked in at build time
+- No `.env` file (uses environment variables from Kubernetes)
 
 **Tasks**:
-- Processes PHP requests via FastCGI (port 9000)
+- Serves static files directly (CSS, JS, images, fonts) with compression and caching
+- Executes PHP for dynamic requests (no FastCGI hop)
 - Handles business logic, database operations, sessions
 - Manages file uploads and dynamic content
+- Provides the `/health` endpoint for Kubernetes probes
 
 **Volume Mounts**:
 - `bagisto-storage` (PVC) → `/var/www/html/storage` (read-write)
-- `bagisto-public` (emptyDir) → `/var/www/html/public` (read-write)
+- `caddyfile` (ConfigMap) → `/etc/caddy` (read-only)
 
-### 3. Sidecar Container: `nginx`
-**Purpose**: HTTP web server that handles all client requests
-
-**Image**: `nginx:1.28.1-alpine`
-
-**Tasks**:
-- Serves static files directly (CSS, JS, images, themes)
-- Proxies PHP requests to main container via FastCGI
-- Handles SSL termination (if configured)
-- Provides health check endpoints
-
-**Volume Mounts**:
-- `bagisto-public` (emptyDir) → `/var/www/html/public` (read-only)
-- `bagisto-storage` (PVC) → `/var/www/html/storage` (read-only)
-- `nginx-config` (ConfigMap) → `/etc/nginx/conf.d`
+**Port**: 8080 (non-privileged, container runs as `www-data`)
 
 ## Volume Strategy
 
-### EmptyDir Volume: `bagisto-public`
-- **Shared between**: Init container (write), Main container (read-write), Nginx (read-only)
-- **Contains**: Static files, build assets, storage symlink
-- **Lifecycle**: Recreated on each pod restart
-- **Purpose**: Fast access to frequently served static content
-
 ### PVC: `bagisto-storage`
-- **Shared between**: Init container (write), Main container (read-write), Nginx (read-only)
-- **Contains**: Uploads, cache, logs, theme customizations
-- **Lifecycle**: Persistent across pod restarts
+- **Used by**: Init container (write), Main container (read-write)
+- **Contains**: Uploads, cache, logs, sessions, theme customizations
+- **Lifecycle**: Persistent across pod restarts and upgrades
 - **Access Mode**: ReadWriteMany (required for multiple replicas)
-- **Purpose**: Persistent data storage
 
-## Critical Symlink Architecture
+### ConfigMap: `caddyfile`
+- **Used by**: Main container (read-only)
+- **Contains**: Caddy/FrankenPHP server configuration (Caddyfile)
+- **Purpose**: Configures HTTP serving, security headers, health endpoint, compression, upload limits
 
-The storage symlink is crucial for Laravel's file serving:
+## Storage Symlink
+
+Laravel requires a symlink to serve uploaded files via the web:
 
 ```
 /var/www/html/public/storage → /var/www/html/storage/app/public
 ```
 
-**Challenge**: EmptyDir volumes don't preserve symlinks from Docker images
-**Solution**: Init container recreates symlink after copying files
-
-**Flow**:
-1. Docker image contains: `/var/www/html/public/storage` (symlink)
-2. `cp -r` copies files but breaks symlink
-3. Init container recreates: `ln -sf /var/www/html/storage/app/public /public-shared/storage`
-4. Nginx can serve theme images via `/storage/theme/1/image.webp`
+With the FrankenPHP approach, this symlink is **created at Docker build time** (`ln -sf` in the Dockerfile). At runtime, when the storage PVC is mounted at `/var/www/html/storage`, the symlink resolves through the mount to the PVC's `app/public` directory. No init container logic is needed for this.
 
 ## Request Flow
 
 ### Static Files (CSS, JS, Images)
 ```
-Client → Gateway → Service → Nginx → Static File (direct serve)
+Client → Ingress → Service → FrankenPHP/Caddy → Static File (direct serve + gzip/zstd)
 ```
 
 ### Dynamic PHP Requests
 ```
-Client → Gateway → Service → Nginx → FastCGI → PHP-FPM → Business Logic
+Client → Ingress → Service → FrankenPHP/Caddy → Embedded PHP → Business Logic
 ```
 
-### Theme Images
+### Uploaded Files (Theme Images, etc.)
 ```
-Client → Gateway → Service → Nginx → Symlink → Storage PVC → Image File
+Client → Ingress → Service → FrankenPHP/Caddy → public/storage (symlink) → Storage PVC
 ```
+
+All three flows are handled by the same process — there is no network hop between a web server and a PHP backend.
+
+## Caddyfile Configuration
+
+The Caddyfile is provided as a Kubernetes ConfigMap and mounted at `/etc/caddy/Caddyfile`. It configures:
+
+- **FrankenPHP mode**: Enables the embedded PHP runtime
+- **Port 8080**: Non-privileged port for `www-data` user
+- **Security headers**: `X-Frame-Options`, `X-Content-Type-Options`, strips `Server` and `X-Powered-By`
+- **Health endpoint**: `/health` returns 200 for liveness/readiness probes
+- **Upload limit**: 100MB max request body
+- **Compression**: zstd and gzip encoding
+- **Hidden file protection**: Denies access to dotfiles (except `.well-known`)
+- **`php_server` directive**: Handles `try_files`, static serving, and PHP execution in one directive
 
 ## Database & External Services
 
 ### Migration Strategy
-- **Approach**: Helm pre-install/pre-upgrade Job
+- **Approach**: Helm post-install/post-upgrade Job
 - **Tool**: `templates/migration-job.yaml`
-- **Safety**: Runs once before any app pods start
-- **Concurrency**: Prevents multiple pods from running migrations simultaneously
+- **Safety**: Waits for database readiness before running `php artisan migrate --force`
 
 ### MySQL
 - **Approach**: Standalone StatefulSet using official MySQL images
@@ -151,14 +161,14 @@ Client → Gateway → Service → Nginx → Symlink → Storage PVC → Image F
 ## Scaling Considerations
 
 ### Horizontal Pod Autoscaling
-- ✅ **Storage**: ReadWriteMany PVC supports multiple pod access
-- ✅ **Sessions**: Redis-backed (shared across pods)
-- ✅ **Database**: MySQL supports multiple connections
-- ✅ **Static Files**: Each pod gets its own copy via init container
+- **Storage**: ReadWriteMany PVC supports multiple pod access
+- **Sessions**: Redis-backed (shared across pods)
+- **Database**: MySQL supports multiple connections
+- **Static Files**: Served from the image filesystem (no shared volume needed)
 
 ### Rolling Updates
-- Migrations run before new pods start
-- Zero-downtime deployments supported
+- Migrations run after new resources are deployed (post-install/post-upgrade hook)
+- Zero-downtime deployments supported via readiness probes
 - Storage persists across updates
 
 ## Debug Commands & Troubleshooting
@@ -168,32 +178,26 @@ Client → Gateway → Service → Nginx → Symlink → Storage PVC → Image F
 # Check pod status and events
 kubectl describe pod <pod-name>
 
-# View init container logs (file copying)
-kubectl logs <pod-name> -c copy-public-files
+# View init container logs (storage setup)
+kubectl logs <pod-name> -c init-storage
 
-# View main application logs (PHP-FPM)
+# View application logs (FrankenPHP serves both HTTP and PHP)
 kubectl logs <pod-name> -c bagisto
-
-# View web server logs (access/error logs)
-kubectl logs <pod-name> -c nginx
 ```
 
 ### File System Inspection
 ```bash
-# Check if public files were copied correctly
+# Check if public files and build assets exist
 kubectl exec deploy/bagisto-bagisto -c bagisto -- ls -la /var/www/html/public/build/
 
-# Verify Nginx can see the same files
-kubectl exec deploy/bagisto-bagisto -c nginx -- ls -la /var/www/html/public/build/
+# Check if storage symlink exists and resolves correctly
+kubectl exec deploy/bagisto-bagisto -c bagisto -- ls -la /var/www/html/public/storage
 
-# Check if storage symlink exists and works
-kubectl exec deploy/bagisto-bagisto -c nginx -- ls -la /var/www/html/public/storage
-
-# Verify theme images exist in storage
+# Verify theme images exist in storage PVC
 kubectl exec deploy/bagisto-bagisto -c bagisto -- find /var/www/html/storage -name "*.webp" | head -5
 
-# Test file accessibility from nginx container
-kubectl exec deploy/bagisto-bagisto -c nginx -- test -f /var/www/html/storage/app/public/theme/1/<filename>.webp && echo "File accessible" || echo "File not found"
+# Verify storage directory structure
+kubectl exec deploy/bagisto-bagisto -c bagisto -- ls -la /var/www/html/storage/
 ```
 
 ### Database & Connectivity
@@ -206,9 +210,6 @@ kubectl exec deploy/bagisto-bagisto -c bagisto -- php artisan migrate:status
 
 # Check Redis connectivity
 kubectl exec deploy/bagisto-bagisto -c bagisto -- php artisan tinker --execute="echo 'Redis: ' . Redis::ping();"
-
-# Test database tables exist
-kubectl exec bagisto-bagisto-mysql-0 -- mysql -u bagisto -pbagisto -D bagisto -e "SHOW TABLES;"
 ```
 
 ### Configuration Verification
@@ -216,42 +217,32 @@ kubectl exec bagisto-bagisto-mysql-0 -- mysql -u bagisto -pbagisto -D bagisto -e
 # Verify environment variables are set correctly
 kubectl exec deploy/bagisto-bagisto -c bagisto -- printenv | grep -E "(DB_|REDIS_|APP_)"
 
-# Check if cached config is cleared (should not exist in production)
-kubectl exec deploy/bagisto-bagisto -c bagisto -- ls -la /var/www/html/bootstrap/cache/config.php
-
 # Test Laravel configuration
 kubectl exec deploy/bagisto-bagisto -c bagisto -- php artisan config:show database.connections.mysql.host
+
+# Check the active Caddyfile
+kubectl exec deploy/bagisto-bagisto -c bagisto -- cat /etc/caddy/Caddyfile
 ```
 
-### Nginx Configuration & Access
+### HTTP & Health Checks
 ```bash
-# Check nginx configuration syntax
-kubectl exec deploy/bagisto-bagisto -c nginx -- nginx -t
+# Test health check endpoint from inside the pod
+kubectl exec deploy/bagisto-bagisto -c bagisto -- wget -qO- http://localhost:8080/health
 
-# View access logs for 404 errors
-kubectl logs deploy/bagisto-bagisto -c nginx | grep " 404 "
-
-# Check if nginx can resolve PHP-FPM
-kubectl exec deploy/bagisto-bagisto -c nginx -- nslookup 127.0.0.1
-
-# Test health check endpoint
-kubectl exec deploy/bagisto-bagisto -c nginx -- wget -O- http://localhost/health
+# Check Caddy is listening
+kubectl exec deploy/bagisto-bagisto -c bagisto -- wget -qO- --spider http://localhost:8080/
 ```
 
 ### Volume Mount Verification
 ```bash
-# Check volume mounts in all containers
+# Check volume mounts
 kubectl describe pod <pod-name> | grep -A 10 "Volume Mounts:"
 
 # Verify PVC is bound and accessible
-kubectl get pvc bagisto-storage
+kubectl get pvc bagisto-bagisto-storage
 
-# Check emptyDir usage
-kubectl exec deploy/bagisto-bagisto -c bagisto -- df -h | grep /var/www/html/public
-
-# Verify permissions on shared storage
+# Verify permissions on storage
 kubectl exec deploy/bagisto-bagisto -c bagisto -- ls -la /var/www/html/storage/
-kubectl exec deploy/bagisto-bagisto -c nginx -- ls -la /var/www/html/storage/
 ```
 
 ### Performance & Resource Monitoring
@@ -264,22 +255,19 @@ kubectl get pods -o wide
 
 # Check if containers are hitting resource limits
 kubectl describe pod <pod-name> | grep -A 5 "Last State"
-
-# Monitor nginx worker processes
-kubectl exec deploy/bagisto-bagisto -c nginx -- ps aux | grep nginx
 ```
 
 ## Common Issues & Solutions
 
 ### 1. Theme Images Return 404
 - **Symptom**: `/storage/theme/1/image.webp` returns 404
-- **Debug**: Check if storage symlink exists in nginx container
-- **Fix**: Ensure init container recreates symlink after copying files
+- **Debug**: Check if storage symlink exists: `ls -la /var/www/html/public/storage`
+- **Fix**: Ensure the Dockerfile creates the symlink with `ln -sf` and the storage PVC is mounted
 
 ### 2. Install Loop
 - **Symptom**: Bagisto installer keeps appearing after completion
 - **Debug**: Check if `storage/installed` file exists and has correct permissions
-- **Fix**: Ensure container runs as `www-data` user
+- **Fix**: Ensure container runs as `www-data` user and `fsGroup: 33` is set
 
 ### 3. Migration Failures
 - **Symptom**: Database connection errors or missing tables
@@ -293,16 +281,21 @@ kubectl exec deploy/bagisto-bagisto -c nginx -- ps aux | grep nginx
 
 ### 5. File Permission Errors
 - **Symptom**: Permission denied when writing to storage
-- **Debug**: Check file ownership and permissions
-- **Fix**: Ensure init container sets proper `chown/chmod` and container runs as `www-data`
+- **Debug**: Check file ownership and permissions on the PVC
+- **Fix**: Ensure pod `securityContext.fsGroup: 33` is set and container runs as `www-data`
+
+### 6. Caddy/FrankenPHP Fails to Start
+- **Symptom**: Container crashes on startup, logs show Caddyfile errors
+- **Debug**: `kubectl logs <pod-name> -c bagisto` for Caddy error output
+- **Fix**: Verify the Caddyfile ConfigMap syntax and that `/data/caddy` and `/config/caddy` are writable
 
 ## Production Recommendations
 
 1. **Security**: Use `existingSecret` for sensitive data (database passwords, app keys)
-2. **Resources**: Set appropriate resource requests/limits
-3. **Monitoring**: Implement health checks and monitoring
+2. **Resources**: Set appropriate resource requests/limits via `resources` in values.yaml
+3. **Monitoring**: Leverage the `/health` endpoint for uptime monitoring
 4. **Backups**: Regular backups of MySQL and storage PVC
 5. **Updates**: Use rolling updates with readiness probes
-6. **SSL**: Configure TLS termination at Gateway level
+6. **SSL**: Configure TLS termination at Ingress/Gateway level (Caddy's auto-HTTPS is disabled)
 7. **Caching**: Consider Redis clustering for high availability
 8. **Storage**: Use high-performance storage class for database workloads
