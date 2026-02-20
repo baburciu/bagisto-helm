@@ -1,11 +1,15 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: bagisto-storage
+  name: {{ include "bagisto.fullname" . }}-storage
+  labels:
+    app: {{ include "bagisto.name" . }}
 spec:
   accessModes:
     - {{ .Values.storage.accessMode }}
   resources:
     requests:
       storage: {{ .Values.storage.size }}
-  storageClassName: {{ .Values.storage.storageClassName | quote }}
+  {{- if .Values.storage.storageClass }}
+  storageClassName: {{ .Values.storage.storageClass }}
+  {{- end }}

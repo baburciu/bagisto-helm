@@ -4,7 +4,7 @@ kind: Service
 metadata:
   name: {{ .Release.Name }}-elasticsearch
   labels:
-    app: elasticsearch
+    app: {{ include "bagisto.name" . }}-elasticsearch
 spec:
   type: ClusterIP
   ports:
@@ -17,5 +17,5 @@ spec:
       protocol: TCP
       name: transport
   selector:
-    app: elasticsearch
+    app: {{ include "bagisto.name" . }}-elasticsearch
 {{- end }}

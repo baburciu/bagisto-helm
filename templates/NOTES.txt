@@ -5,24 +5,24 @@ Your Bagisto e-commerce platform has been deployed.
 1. Get the application service:
    kubectl get svc {{ include "bagisto.fullname" . }} -n {{ .Release.Namespace }}
 
-3. Cache Status:
+2. Cache Status:
 {{- if .Values.redis.enabled }}
    Redis is deployed as a subchart ({{ .Release.Name }}-redis-master)
 {{- else }}
-   Using external Redis at {{ .Values.redis.external.host }}
+   Using external Redis at {{ .Values.redisConfig.external.host }}
 {{- end }}
 
-4. Search Status:
+3. Search Status:
 {{- if .Values.elasticsearch.enabled }}
    Elasticsearch is deployed ({{ .Release.Name }}-elasticsearch)
 {{- else }}
    Elasticsearch is disabled
 {{- end }}
 
-5. Check deployment status:
+4. Check deployment status:
    kubectl get pods -n {{ .Release.Namespace }}
 
-6. Access logs:
+5. Access logs:
    kubectl logs -f deployment/{{ include "bagisto.fullname" . }} -n {{ .Release.Namespace }}
 
 For more information, visit: https://bagisto.com/en/docs/

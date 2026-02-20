@@ -228,6 +228,10 @@ spec:
               value: {{ (.Values.vite).host | default "localhost" | quote }}
             - name: VITE_PORT
               value: {{ (.Values.vite).port | default "" | quote }}
+          {{- if .Values.resources }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- end }}
           volumeMounts:
             - name: bagisto-storage
               mountPath: /var/www/html/storage
@@ -248,6 +252,10 @@ spec:
             - name: bagisto-storage
               mountPath: /var/www/html/storage
               readOnly: true
+          {{- if .Values.nginxResources }}
+          resources:
+            {{- toYaml .Values.nginxResources | nindent 12 }}
+          {{- end }}
           livenessProbe:
             httpGet:
               path: /health
@@ -268,4 +276,4 @@ spec:
           emptyDir: {}
         - name: bagisto-storage
           persistentVolumeClaim:
-            claimName: bagisto-storage
+            claimName: {{ include "bagisto.fullname" . }}-storage

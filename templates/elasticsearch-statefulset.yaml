@@ -4,17 +4,17 @@ kind: StatefulSet
 metadata:
   name: {{ .Release.Name }}-elasticsearch
   labels:
-    app: elasticsearch
+    app: {{ include "bagisto.name" . }}-elasticsearch
 spec:
   serviceName: {{ .Release.Name }}-elasticsearch
   replicas: {{ .Values.elasticsearch.replicas }}
   selector:
     matchLabels:
-      app: elasticsearch
+      app: {{ include "bagisto.name" . }}-elasticsearch
   template:
     metadata:
       labels:
-        app: elasticsearch
+        app: {{ include "bagisto.name" . }}-elasticsearch
     spec:
       containers:
         - name: elasticsearch
