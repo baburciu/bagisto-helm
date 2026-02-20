@@ -14,6 +14,9 @@ spec:
       labels:
         app: {{ include "bagisto.name" . }}
     spec:
+      securityContext:
+        # GID 33 = www-data; ensures mounted volumes are group-owned by www-data
+        fsGroup: 33
       initContainers:
         - name: copy-public-files
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -44,10 +47,6 @@ spec:
               mkdir -p /storage-shared/framework/testing
               mkdir -p /storage-shared/framework/views
               mkdir -p /storage-shared/logs
-              chown www-data:www-data /storage-shared
-              chmod 775 /storage-shared
-              chown -R www-data:www-data /storage-shared/app /storage-shared/framework /storage-shared/logs
-              chmod -R 775 /storage-shared/app /storage-shared/framework /storage-shared/logs
               echo "Storage directory structure created"
 
           volumeMounts:
