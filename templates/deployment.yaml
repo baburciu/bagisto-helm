@@ -44,6 +44,8 @@ spec:
               mkdir -p /storage-shared/framework/testing
               mkdir -p /storage-shared/framework/views
               mkdir -p /storage-shared/logs
+              chown www-data:www-data /storage-shared
+              chmod 775 /storage-shared
               chown -R www-data:www-data /storage-shared/app /storage-shared/framework /storage-shared/logs
               chmod -R 775 /storage-shared/app /storage-shared/framework /storage-shared/logs
               echo "Storage directory structure created"
