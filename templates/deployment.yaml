@@ -34,6 +34,13 @@ spec:
               mkdir -p /storage-shared/framework/views
               mkdir -p /storage-shared/logs
               echo "Storage directory structure created"
+              # Copy locale seed images to storage (no-clobber to preserve admin uploads)
+              SEED_DIR="/var/www/html/packages/Webkul/Installer/src/Resources/assets/images/seeders/locales"
+              if [ -d "$SEED_DIR" ]; then
+                mkdir -p /storage-shared/app/public/locales
+                cp -n "$SEED_DIR"/*.png /storage-shared/app/public/locales/ 2>/dev/null || true
+                echo "Locale seed images synced"
+              fi
           volumeMounts:
             - name: bagisto-storage
               mountPath: /storage-shared
