@@ -32,6 +32,19 @@ spec:
               echo "Database ready, running migrations..."
               php artisan migrate --force
               echo "Migrations completed successfully"
+              # Normalize locale logo_path to match seed filenames (locales/{code}.png)
+              # The Bagisto seeder uses Storage::putFile() which generates UUID filenames,
+              # but the init container copies seed images as {code}.png. Align the DB.
+              echo "Normalizing locale logo paths..."
+              php artisan tinker --execute="
+                \$seedDir = 'packages/Webkul/Installer/src/Resources/assets/images/seeders/locales';
+                foreach (\Webkul\Core\Models\Locale::all() as \$locale) {
+                  if (file_exists(base_path(\$seedDir . '/' . \$locale->code . '.png'))) {
+                    \$locale->update(['logo_path' => 'locales/' . \$locale->code . '.png']);
+                  }
+                }
+                echo 'Done';
+              "
           env:
             # Database Configuration
             - name: DB_CONNECTION
