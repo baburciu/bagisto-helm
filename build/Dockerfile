@@ -36,8 +36,9 @@ COPY --from=composer:2.7.9 /usr/bin/composer /usr/local/bin/composer
 
 # Download Bagisto source — ARG declared here so all layers above (system deps,
 # PHP extensions, Composer) are cached regardless of version changes
-ARG BAGISTO_VERSION="v2.3.6"
-RUN git clone --depth 1 --branch ${BAGISTO_VERSION} https://github.com/baburciu/bagisto.git /tmp/bagisto
+ARG BAGISTO_VERSION="v2.4.1"
+ARG BAGISTO_REPO="https://github.com/bagisto/bagisto.git"
+RUN git clone --depth 1 --branch ${BAGISTO_VERSION} ${BAGISTO_REPO} /tmp/bagisto
 
 # Move Bagisto files into place
 RUN mv /tmp/bagisto/* /tmp/bagisto/.* /var/www/html/ 2>/dev/null || true \
