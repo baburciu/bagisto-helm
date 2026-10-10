@@ -4,6 +4,9 @@ metadata:
   name: {{ include "bagisto.fullname" . }}-storage
   labels:
     app: {{ include "bagisto.name" . }}
+    {{- with .Values.storage.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   accessModes:
     - {{ .Values.storage.accessMode }}

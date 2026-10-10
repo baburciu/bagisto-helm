@@ -1,6 +1,6 @@
 apiVersion: v2
 name: bagisto
-version: 0.1.0
+version: 0.2.0
 description: A Helm chart for deploying [Bagisto](https://github.com/bagisto/bagisto) on Kubernetes
 appVersion: "1.0.0"
 dependencies:

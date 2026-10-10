@@ -29,6 +29,8 @@ storage:
   size: 10Gi
   # -- Storage class name (leave empty for default)
   storageClass: ""
+  # -- Extra labels for the storage PVC (e.g. Longhorn recurring-job labels)
+  labels: {}
 
 # -- Resource requests and limits for the Bagisto (PHP-FPM) container
 resources:
@@ -164,6 +166,8 @@ mysqlStandalone:
     size: 10Gi
     # -- MySQL storage class name
     storageClass: ""
+    # -- Extra labels for the MySQL PVC. Set at install time only: volumeClaimTemplates of an existing StatefulSet are immutable
+    labels: {}
   # -- MySQL resource requests and limits
   resources:
     requests:

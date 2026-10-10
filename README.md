@@ -2,7 +2,7 @@
 
 A Helm chart for deploying [Bagisto](https://github.com/bagisto/bagisto) on Kubernetes
 
-![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![AppVersion: 1.0.0](https://img.shields.io/badge/AppVersion-1.0.0-informational?style=flat-square)
+![Version: 0.2.0](https://img.shields.io/badge/Version-0.2.0-informational?style=flat-square) ![AppVersion: 1.0.0](https://img.shields.io/badge/AppVersion-1.0.0-informational?style=flat-square)
 
 ## Features
 
@@ -58,9 +58,9 @@ helm install bagisto . -n bagisto --create-namespace
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| app | object | `{"currency":"EUR","debug":true,"env":"production","existingSecret":{"keyKey":"app-key","name":""},"key":"base64:CHANGE_THIS_KEY_RUN_php_artisan_key_generate","locale":"en","name":"Bagisto","timezone":"UTC","url":"http://localhost"}` | Bagisto application configuration |
+| app | object | `{"currency":"EUR","debug":false,"env":"production","existingSecret":{"keyKey":"app-key","name":""},"key":"base64:CHANGE_THIS_KEY_RUN_php_artisan_key_generate","locale":"en","name":"Bagisto","timezone":"UTC","url":"http://localhost"}` | Bagisto application configuration |
 | app.currency | string | `"EUR"` | Application currency code |
-| app.debug | bool | `true` | Enable debug mode |
+| app.debug | bool | `false` | Enable debug mode |
 | app.env | string | `"production"` | Application environment (local, production) |
 | app.existingSecret | object | `{"keyKey":"app-key","name":""}` | Use existing Kubernetes secret for APP_KEY (recommended for production) |
 | app.existingSecret.keyKey | string | `"app-key"` | Key in the secret containing the APP_KEY value |
@@ -125,12 +125,14 @@ helm install bagisto . -n bagisto --create-namespace
 | mysql.primary.persistence.enabled | bool | `true` | Enable persistence for MySQL |
 | mysql.primary.persistence.size | string | `"10Gi"` | MySQL persistent volume size |
 | mysql.primary.persistence.storageClass | string | `""` | MySQL storage class name |
-| mysqlStandalone | object | `{"args":["--character-set-server=utf8mb4","--collation-server=utf8mb4_unicode_ci"],"image":{"repository":"docker.io/mysql","tag":"9.6.0-oraclelinux9"},"persistence":{"size":"10Gi","storageClass":""},"resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"500m","memory":"512Mi"}}}` | Standalone MySQL Configuration (official MySQL image with ARM64 support). Only deployed when mysql.enabled is false and databaseConfig.external.enabled is false. |
+| mysqlStandalone | object | `{"args":["--character-set-server=utf8mb4","--collation-server=utf8mb4_unicode_ci"],"image":{"pullPolicy":"IfNotPresent","repository":"docker.io/mysql","tag":"9.6.0-oraclelinux9"},"persistence":{"labels":{},"size":"10Gi","storageClass":""},"resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"500m","memory":"512Mi"}}}` | Standalone MySQL Configuration (official MySQL image with ARM64 support). Only deployed when mysql.enabled is false and databaseConfig.external.enabled is false. |
 | mysqlStandalone.args | list | `["--character-set-server=utf8mb4","--collation-server=utf8mb4_unicode_ci"]` | MySQL command line arguments (e.g., for charset configuration) |
-| mysqlStandalone.image | object | `{"repository":"docker.io/mysql","tag":"9.6.0-oraclelinux9"}` | MySQL container image settings |
+| mysqlStandalone.image | object | `{"pullPolicy":"IfNotPresent","repository":"docker.io/mysql","tag":"9.6.0-oraclelinux9"}` | MySQL container image settings |
+| mysqlStandalone.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | mysqlStandalone.image.repository | string | `"docker.io/mysql"` | MySQL image repository (official MySQL image) |
 | mysqlStandalone.image.tag | string | `"9.6.0-oraclelinux9"` | MySQL image tag |
-| mysqlStandalone.persistence | object | `{"size":"10Gi","storageClass":""}` | MySQL persistence configuration |
+| mysqlStandalone.persistence | object | `{"labels":{},"size":"10Gi","storageClass":""}` | MySQL persistence configuration |
+| mysqlStandalone.persistence.labels | object | `{}` | Extra labels for the MySQL PVC. Set at install time only: volumeClaimTemplates of an existing StatefulSet are immutable |
 | mysqlStandalone.persistence.size | string | `"10Gi"` | MySQL persistent volume size |
 | mysqlStandalone.persistence.storageClass | string | `""` | MySQL storage class name |
 | mysqlStandalone.resources | object | `{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"500m","memory":"512Mi"}}` | MySQL resource requests and limits |
@@ -158,15 +160,17 @@ helm install bagisto . -n bagisto --create-namespace
 | redisConfig.host | string | `"{{ .Release.Name }}-redis-master"` | Redis host (supports template syntax) |
 | redisConfig.port | int | `6379` | Redis port |
 | replicaCount | int | `2` | Number of Bagisto pod replicas |
+| resources | object | `{"limits":{"cpu":"1000m","memory":"512Mi"},"requests":{"cpu":"250m","memory":"256Mi"}}` | Resource requests and limits for the Bagisto (PHP-FPM) container |
 | service | object | `{"port":80,"type":"ClusterIP"}` | Kubernetes service configuration |
 | service.port | int | `80` | Service port |
 | service.type | string | `"ClusterIP"` | Service type |
 | session | object | `{"driver":"redis","lifetime":120}` | Session Configuration |
 | session.driver | string | `"redis"` | Session driver (file, redis, database) |
 | session.lifetime | int | `120` | Session lifetime in minutes |
-| storage | object | `{"accessMode":"ReadWriteMany","enabled":true,"size":"10Gi","storageClass":""}` | Application Storage (for uploads, cache, etc.) |
+| storage | object | `{"accessMode":"ReadWriteMany","enabled":true,"labels":{},"size":"10Gi","storageClass":""}` | Application Storage (for uploads, cache, etc.) |
 | storage.accessMode | string | `"ReadWriteMany"` | Storage access mode (ReadWriteMany required for multiple replicas) |
 | storage.enabled | bool | `true` | Enable persistent storage for Bagisto uploads and cache |
+| storage.labels | object | `{}` | Extra labels for the storage PVC (e.g. Longhorn recurring-job labels) |
 | storage.size | string | `"10Gi"` | Storage size |
 | storage.storageClass | string | `""` | Storage class name (leave empty for default) |
 
