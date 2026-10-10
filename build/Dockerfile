@@ -47,8 +47,15 @@ RUN mv /tmp/bagisto/* /tmp/bagisto/.* /var/www/html/ 2>/dev/null || true \
 # Remove .env file - we'll use environment variables from Kubernetes
 RUN rm -f /var/www/html/.env
 
+# Add the catalog:sync artisan command (auto-discovered from app/Console/Commands)
+COPY build/catalog-sync/app/ /var/www/html/app/
+
 # Install Bagisto dependencies
 RUN composer install --no-dev --optimize-autoloader --no-interaction
+
+# catalog:sync parses YAML; symfony/yaml is only a dev dependency upstream, so
+# promote it to a runtime one at the version already in composer.lock
+RUN composer require "symfony/yaml:^8.1" --update-no-dev --optimize-autoloader --no-interaction
 
 # Run optimization commands
 # NOTE: Do NOT run config:cache or route:cache here - they bake in build-time

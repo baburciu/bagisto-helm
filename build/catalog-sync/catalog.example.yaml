@@ -1,0 +1,89 @@
+# Example catalog for `php artisan catalog:sync`. In the Helm chart this is the
+# content of `catalogSync.catalog`.
+
+# Optional: locale used for rows/values that are not given per locale
+# (defaults to the default channel's locale) and the channel whose root
+# category the top-level categories hang under (defaults to the default channel).
+default_locale: en
+channel: default
+
+inventory_sources:
+  - code: default
+    name: Default warehouse
+    contact_name: Store Owner
+    contact_email: owner@example.com
+    contact_number: "+40700000000"
+    country: RO
+    state: B
+    city: Bucharest
+    street: Strada Exemplu 1
+    postcode: "010101"
+    priority: 0
+    status: true
+
+# Matched by slug. Translatable fields take a string (same in every locale) or a
+# map keyed by locale code.
+categories:
+  - slug: men
+    name: { en: Men, ro: Bărbați }
+    description: { en: Clothing for men, ro: Îmbrăcăminte pentru bărbați }
+    children:
+      - slug: winter-wear
+        name: { en: Winter Wear, ro: Haine de iarnă }
+
+# Same nested structure the admin configuration form saves. Fields that depend
+# on a sibling (most payment method fields depend on "active") must be listed
+# together with it. "${VAR}" is replaced with an environment variable.
+config:
+  - channel: default
+    locale: en
+    values:
+      sales:
+        payment_methods:
+          stripe:
+            active: true
+            title: Card
+            sandbox: true
+            api_test_key: ${STRIPE_TEST_SECRET_KEY}
+            api_test_publishable_key: ${STRIPE_TEST_PUBLISHABLE_KEY}
+
+# Matched by url_key.
+pages:
+  - url_key: about-us
+    channels: [default]
+    page_title: { en: About us, ro: Despre noi }
+    html_content:
+      en: <p>We are a small shop.</p>
+      ro: <p>Suntem un magazin mic.</p>
+    meta_title: { en: About us, ro: Despre noi }
+
+# Imported with Bagisto's Data Transfer product importer. Any column of the
+# importer's CSV can be used (see storage/app/public/data-transfer/samples/csv/products.csv
+# in the image). Matched by sku.
+products:
+  # url: images are downloaded from the URLs in `images`
+  # directory: images are file names under storage/app/import/<images_directory_path>
+  image_source: url
+  validation_strategy: stop-on-errors   # or skip-errors
+  allowed_errors: 0
+  items:
+    - sku: BEANIE-001
+      type: simple
+      attribute_family_code: default
+      name: { en: Cozy Knit Beanie, ro: Căciulă tricotată }
+      short_description: { en: Warm beanie, ro: Căciulă călduroasă }
+      description: { en: A warm knitted beanie., ro: O căciulă tricotată călduroasă. }
+      url_key: { en: cozy-knit-beanie, ro: caciula-tricotata }
+      # Category names (in any locale) the product is assigned to
+      categories: [Winter Wear]
+      images:
+        - https://example.com/images/beanie-front.webp
+      price: 49.99
+      weight: 0.2
+      status: true
+      visible_individually: true
+      guest_checkout: true
+      tax_category_name: ""
+      manage_stock: true
+      # inventory source code: quantity
+      inventories: { default: 25 }

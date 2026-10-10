@@ -73,6 +73,12 @@ helm install bagisto . -n bagisto --create-namespace
 | cache | object | `{"prefix":"bagisto_cache","store":"redis"}` | Cache Configuration |
 | cache.prefix | string | `"bagisto_cache"` | Cache key prefix |
 | cache.store | string | `"redis"` | Cache store (file, redis, database) |
+| catalogSync | object | `{"catalog":{},"dryRun":false,"enabled":false,"envFrom":[],"resources":{}}` | Declarative store content applied by `php artisan catalog:sync` in a post-install/post-upgrade Job, after the migration Job. See build/catalog-sync/README.md for the catalog format. |
+| catalogSync.catalog | object | `{}` | Catalog content (inventory_sources, categories, config, pages, products) |
+| catalogSync.dryRun | bool | `false` | Apply inside a rolled-back transaction and only validate products |
+| catalogSync.enabled | bool | `false` | Run the catalog sync Job |
+| catalogSync.envFrom | list | `[]` | Extra env sources for the Job (e.g. a Secret holding Stripe keys), referenced in the catalog as ${VAR} |
+| catalogSync.resources | object | `{}` | Resource requests and limits for the Job |
 | databaseConfig | object | `{"external":{"enabled":false,"host":"prod-mysql.example.com","name":"bagisto","password":"prodpassword","port":3306,"username":"bagisto"},"host":"{{ include \"bagisto.fullname\" . }}-mysql","name":"bagisto","password":"bagisto","port":3306,"rootPassword":"root","username":"bagisto"}` | MySQL Database Configuration |
 | databaseConfig.external | object | `{"enabled":false,"host":"prod-mysql.example.com","name":"bagisto","password":"prodpassword","port":3306,"username":"bagisto"}` | External MySQL configuration (for managed services like AWS RDS) |
 | databaseConfig.external.enabled | bool | `false` | Enable external MySQL |

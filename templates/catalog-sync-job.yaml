@@ -1,0 +1,59 @@
+{{- if .Values.catalogSync.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "bagisto.fullname" . }}-catalog-sync
+  labels:
+    app: {{ include "bagisto.name" . }}
+  annotations:
+    # Runs after the migration Job (weight 1) so the schema is current
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "2"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: {{ include "bagisto.name" . }}
+    spec:
+      restartPolicy: Never
+      securityContext:
+        # GID 33 = www-data; product images are written to the shared storage volume
+        fsGroup: 33
+      containers:
+        - name: catalog-sync
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - php
+            - artisan
+            - catalog:sync
+            - /catalog/catalog.yaml
+            {{- if .Values.catalogSync.dryRun }}
+            - --dry-run
+            {{- end }}
+          env:
+            {{- include "bagisto.env" . | nindent 12 }}
+          {{- with .Values.catalogSync.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.catalogSync.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: bagisto-storage
+              mountPath: /var/www/html/storage
+            - name: catalog
+              mountPath: /catalog
+              readOnly: true
+      volumes:
+        - name: bagisto-storage
+          persistentVolumeClaim:
+            claimName: {{ include "bagisto.fullname" . }}-storage
+        - name: catalog
+          configMap:
+            name: {{ include "bagisto.fullname" . }}-catalog
+{{- end }}

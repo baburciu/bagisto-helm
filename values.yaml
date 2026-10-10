@@ -293,3 +293,17 @@ elasticsearch:
     elasticsearch.yml: |
       xpack.security.enabled: false
       discovery.type: single-node
+
+# -- Declarative store content applied by `php artisan catalog:sync` in a post-install/post-upgrade Job,
+# after the migration Job. See build/catalog-sync/README.md for the catalog format.
+catalogSync:
+  # -- Run the catalog sync Job
+  enabled: false
+  # -- Apply inside a rolled-back transaction and only validate products
+  dryRun: false
+  # -- Extra env sources for the Job (e.g. a Secret holding Stripe keys), referenced in the catalog as ${VAR}
+  envFrom: []
+  # -- Catalog content (inventory_sources, categories, config, pages, products)
+  catalog: {}
+  # -- Resource requests and limits for the Job
+  resources: {}

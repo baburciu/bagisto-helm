@@ -1,0 +1,11 @@
+{{- if .Values.catalogSync.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "bagisto.fullname" . }}-catalog
+  labels:
+    app: {{ include "bagisto.name" . }}
+data:
+  catalog.yaml: |
+    {{- toYaml .Values.catalogSync.catalog | nindent 4 }}
+{{- end }}
