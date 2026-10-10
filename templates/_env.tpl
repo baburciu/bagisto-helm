@@ -1,0 +1,158 @@
+{{/* Environment shared by the Bagisto web container and one-off Jobs */}}
+{{- define "bagisto.env" -}}
+# Application Configuration
+- name: APP_NAME
+  value: {{ .Values.app.name | quote }}
+- name: APP_ENV
+  value: {{ .Values.app.env | quote }}
+- name: APP_DEBUG
+  value: {{ .Values.app.debug | quote }}
+{{- if .Values.app.debugAllowedIps }}
+- name: APP_DEBUG_ALLOWED_IPS
+  value: {{ .Values.app.debugAllowedIps | quote }}
+{{- end }}
+- name: APP_KEY
+  {{- if ((.Values.app).existingSecret).name }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.app.existingSecret.name }}
+      key: {{ .Values.app.existingSecret.key }}
+  {{- else }}
+  value: {{ .Values.app.key | quote }}
+  {{- end }}
+- name: APP_URL
+  value: {{ .Values.app.url | quote }}
+- name: APP_ADMIN_URL
+  value: {{ .Values.app.adminUrl | default "admin" | quote }}
+- name: APP_TIMEZONE
+  value: {{ .Values.app.timezone | quote }}
+- name: APP_LOCALE
+  value: {{ .Values.app.locale | quote }}
+- name: APP_FALLBACK_LOCALE
+  value: {{ .Values.app.fallbackLocale | default "en" | quote }}
+- name: APP_CURRENCY
+  value: {{ .Values.app.currency | quote }}
+# Database Configuration
+- name: DB_CONNECTION
+  value: "mysql"
+- name: DB_HOST
+  value: {{ tpl .Values.databaseConfig.host . | quote }}
+- name: DB_PORT
+  value: {{ .Values.databaseConfig.port | quote }}
+- name: DB_DATABASE
+  value: {{ .Values.databaseConfig.name | quote }}
+- name: DB_USERNAME
+  value: {{ .Values.databaseConfig.username | quote }}
+- name: DB_PASSWORD
+  {{- if ((.Values.databaseConfig).existingSecret).name }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.databaseConfig.existingSecret.name }}
+      key: {{ .Values.databaseConfig.existingSecret.passwordKey }}
+  {{- else }}
+  value: {{ .Values.databaseConfig.password | quote }}
+  {{- end }}
+- name: DB_PREFIX
+  value: ""
+# Redis Configuration
+- name: REDIS_CLIENT
+  value: "phpredis"
+{{- if ((.Values.redisConfig).external).enabled }}
+# External Redis configuration
+- name: REDIS_HOST
+  value: {{ .Values.redisConfig.external.host | quote }}
+- name: REDIS_PORT
+  value: {{ .Values.redisConfig.external.port | quote }}
+{{- else }}
+# Internal Redis configuration
+- name: REDIS_HOST
+  value: {{ tpl .Values.redisConfig.host . | quote }}
+- name: REDIS_PORT
+  value: {{ .Values.redisConfig.port | quote }}
+{{- end }}
+{{- if ((.Values.redisConfig).existingSecret).name }}
+- name: REDIS_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.redisConfig.existingSecret.name }}
+      key: {{ .Values.redisConfig.existingSecret.passwordKey | default "redis-password" }}
+{{- else }}
+- name: REDIS_PASSWORD
+  value: ""
+{{- end }}
+# Session Configuration
+- name: SESSION_DRIVER
+  value: {{ .Values.session.driver | quote }}
+- name: SESSION_LIFETIME
+  value: {{ .Values.session.lifetime | quote }}
+- name: SESSION_ENCRYPT
+  value: {{ .Values.session.encrypt | default "false" | quote }}
+- name: SESSION_PATH
+  value: {{ .Values.session.path | default "/" | quote }}
+- name: SESSION_DOMAIN
+  value: {{ .Values.session.domain | default "" | quote }}
+# Cache Configuration
+- name: CACHE_STORE
+  value: {{ .Values.cache.store | quote }}
+- name: CACHE_PREFIX
+  value: {{ .Values.cache.prefix | quote }}
+- name: RESPONSE_CACHE_ENABLED
+  value: {{ .Values.cache.responseEnabled | default "false" | quote }}
+# Queue Configuration
+- name: QUEUE_CONNECTION
+  value: {{ .Values.queue.connection | quote }}
+# Broadcasting
+- name: BROADCAST_CONNECTION
+  value: "log"
+# Filesystem
+- name: FILESYSTEM_DISK
+  value: "public"
+{{- if .Values.elasticsearch.enabled }}
+# Elasticsearch Configuration
+- name: ELASTICSEARCH_HOST
+  value: "http://{{ .Release.Name }}-elasticsearch:9200"
+{{- end }}
+{{- if .Values.mail.enabled }}
+# Mail Configuration
+- name: MAIL_MAILER
+  value: {{ .Values.mail.mailer | quote }}
+- name: MAIL_HOST
+  value: {{ .Values.mail.host | quote }}
+- name: MAIL_PORT
+  value: {{ .Values.mail.port | quote }}
+- name: MAIL_USERNAME
+  value: {{ .Values.mail.username | default "" | quote }}
+- name: MAIL_PASSWORD
+  value: {{ .Values.mail.password | default "" | quote }}
+- name: MAIL_ENCRYPTION
+  value: {{ .Values.mail.encryption | default "null" | quote }}
+- name: MAIL_FROM_ADDRESS
+  value: {{ .Values.mail.from.address | quote }}
+- name: MAIL_FROM_NAME
+  value: {{ .Values.mail.from.name | quote }}
+- name: ADMIN_MAIL_ADDRESS
+  value: {{ .Values.mail.admin.address | quote }}
+- name: ADMIN_MAIL_NAME
+  value: {{ .Values.mail.admin.name | quote }}
+{{- end }}
+# Logging
+- name: LOG_CHANNEL
+  value: "stack"
+{{- if (.Values.logging).stack }}
+- name: LOG_STACK
+  value: {{ .Values.logging.stack | default "single" | quote }}
+{{- end }}
+{{- if (.Values.logging).deprecationsChannel }}
+- name: LOG_DEPRECATIONS_CHANNEL
+  value: {{ .Values.logging.deprecationsChannel | default "null" | quote }}
+{{- end }}
+- name: LOG_LEVEL
+  value: "info"
+# Frontend Configuration
+- name: VITE_APP_NAME
+  value: {{ .Values.app.name | quote }}
+- name: VITE_HOST
+  value: {{ (.Values.vite).host | default "localhost" | quote }}
+- name: VITE_PORT
+  value: {{ (.Values.vite).port | default "" | quote }}
+{{- end -}}
