@@ -1,5 +1,5 @@
 # main image — FrankenPHP (Caddy + embedded PHP, no separate web server needed)
-FROM dunglas/frankenphp:1.11.2-php8.3 AS base
+FROM dunglas/frankenphp:1.11.2-php8.4 AS base
 
 # FrankenPHP uses /app by default; override to match Laravel conventions
 WORKDIR /var/www/html
@@ -32,11 +32,11 @@ RUN pecl install imagick-3.8.1 redis-6.3.0 \
     && docker-php-ext-enable imagick redis
 
 # Install Composer (version-pinned)
-COPY --from=composer:2.7.9 /usr/bin/composer /usr/local/bin/composer
+COPY --from=composer:2.9.8 /usr/bin/composer /usr/local/bin/composer
 
 # Download Bagisto source — ARG declared here so all layers above (system deps,
 # PHP extensions, Composer) are cached regardless of version changes
-ARG BAGISTO_VERSION="v2.4.1"
+ARG BAGISTO_VERSION="v2.5.0"
 ARG BAGISTO_REPO="https://github.com/bagisto/bagisto.git"
 RUN git clone --depth 1 --branch ${BAGISTO_VERSION} ${BAGISTO_REPO} /tmp/bagisto
 
@@ -49,15 +49,6 @@ RUN rm -f /var/www/html/.env
 
 # Install Bagisto dependencies
 RUN composer install --no-dev --optimize-autoloader --no-interaction
-
-# Install Stripe Payment Gateway — ARGs declared here so changing the Stripe
-# version does NOT invalidate the git clone + composer install layers above
-ARG STRIPE_GATEWAY_VERSION="*"
-ARG INSTALL_STRIPE_GATEWAY="true"
-RUN if [ "$INSTALL_STRIPE_GATEWAY" = "true" ]; then \
-        echo "Installing Stripe Payment Gateway version: $STRIPE_GATEWAY_VERSION"; \
-        composer require codenteq/stripe-payment-gateway:"${STRIPE_GATEWAY_VERSION}" --no-interaction; \
-    fi
 
 # Run optimization commands
 # NOTE: Do NOT run config:cache or route:cache here - they bake in build-time
