@@ -1,22 +1,21 @@
 # Bagisto
 
-This Dockerfile creates a production-ready Bagisto image with optional extensions pre-installed.
+This Dockerfile creates a production-ready Bagisto image.
 
 **Key Feature:** The Dockerfile automatically downloads Bagisto source code from the official GitHub repository during the build process - no manual setup required!
 
 ## How It Works
 
 1. **Downloads Bagisto**: Clones the official Bagisto repository from https://github.com/bagisto/bagisto
-2. **Checks out specific version**: Uses the version tag you specify (e.g., `v2.3.6`)
+2. **Checks out specific version**: Uses the version tag you specify (e.g., `v2.5.0`)
 3. **Installs dependencies**: Runs `composer install` to get all PHP packages
-4. **Installs extensions**: Optionally installs Stripe Payment Gateway and other extensions
-5. **Optimizes for production**: Caches configs, routes, and builds frontend assets
+4. **Optimizes for production**: Caches configs, routes, and builds frontend assets
 
 ### The Process (Step by Step)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ 1. You run: docker build -f Dockerfile.production .        │
+│ 1. You run: docker build -f build/Dockerfile .        │
 └─────────────────────────────────────────────────────────────┘
                            ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -28,7 +27,7 @@ This Dockerfile creates a production-ready Bagisto image with optional extension
                            ↓
 ┌─────────────────────────────────────────────────────────────┐
 │ 3. Dockerfile checks out specific version:                 │
-│    git checkout v2.3.6                                      │
+│    git checkout v2.5.0                                      │
 │                                                             │
 │    This pins it to a stable release                         │
 └─────────────────────────────────────────────────────────────┘
@@ -41,54 +40,25 @@ This Dockerfile creates a production-ready Bagisto image with optional extension
 └─────────────────────────────────────────────────────────────┘
                            ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ 5. Dockerfile installs Stripe Payment Gateway:             │
-│    composer require codenteq/stripe-payment-gateway        │
-│                                                             │
-│    This adds the payment extension                          │
-└─────────────────────────────────────────────────────────────┘
-                           ↓
-┌─────────────────────────────────────────────────────────────┐
-│ 6. Result: Docker image with Bagisto + Stripe ready!       │
+│ 5. Result: Docker image with Bagisto ready!                │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ## Features
 
-- [FrankenPHP](https://frankenphp.dev) (Caddy + embedded PHP 8.3) — single process serves both static files and PHP
+- [FrankenPHP](https://frankenphp.dev) (Caddy + embedded PHP 8.4) — single process serves both static files and PHP
 - All required PHP extensions (GD, Imagick, Intl, etc.)
-- Composer 2.7
+- Composer 2.9
 - Node.js 20 (frontend build stage)
 - Optimized for production (caching, permissions, non-root operation)
-- Version-controlled extension installation
+- Stripe payments via Bagisto's bundled `Webkul/Stripe` package (no extra install)
 
 ## Building the Image
 
-### Basic Build (with latest Stripe Payment Gateway)
+### Basic Build
 
 ```bash
-docker build -f Dockerfile.production -t bagisto-production:latest .
-```
-
-### Build with Specific Stripe Gateway Version
-
-To pin the Stripe Payment Gateway to a specific version:
-
-```bash
-docker build \
-  --build-arg STRIPE_GATEWAY_VERSION="^1.0" \
-  -f Dockerfile.production \
-  -t bagisto-production:2.3.11 .
-```
-
-### Build without Stripe Gateway
-
-To build without installing the Stripe Payment Gateway:
-
-```bash
-docker build \
-  --build-arg INSTALL_STRIPE_GATEWAY="false" \
-  -f Dockerfile.production \
-  -t bagisto-production:2.3.11 .
+docker build -f build/Dockerfile -t bagisto-production:latest .
 ```
 
 ### Build with Specific Bagisto Version
@@ -97,10 +67,9 @@ To build with a specific Bagisto version from GitHub:
 
 ```bash
 docker build \
-  --build-arg BAGISTO_VERSION="v2.3.11" \
-  --build-arg STRIPE_GATEWAY_VERSION="^1.0" \
-  -f Dockerfile.production \
-  -t bagisto-production:2.3.11 .
+  --build-arg BAGISTO_VERSION="v2.5.0" \
+  -f build/Dockerfile \
+  -t bagisto-production:2.5.0 .
 ```
 
 ### Build with Latest Bagisto (master branch)
@@ -108,32 +77,23 @@ docker build \
 ```bash
 docker build \
   --build-arg BAGISTO_VERSION="master" \
-  -f Dockerfile.production \
+  -f build/Dockerfile \
   -t bagisto-production:latest .
-```
-
-### Version Constraint Examples for Stripe
-- It downloads Bagisto directly from GitHub
-- It checks out the specific version you want (controlled by `BAGISTO_VERSION`)
-- You don't need to manually download or manage the Bagisto source code
-
-### 2. Version Control-stripe-1.2.3 .
 ```
 
 ## Build Arguments
 
 | Argument | Description | Default | Example |
 |----------|-------------|---------|---------|
-| `STRIPE_GATEWAY_VERSION` | Version constraint for Stripe gateway | `*` (latest) | `^1.0`, `1.2.3`, `~1.5` |
-| `INSTALL_STRIPE_GATEWAY` | Whether to install Stripe gateway | `true` | `true`, `false` |
+| `BAGISTO_VERSION` | Bagisto git tag or branch to build | `v2.5.0` | `v2.5.0`, `master` |
+| `BAGISTO_REPO` | Bagisto git repository to clone | `https://github.com/bagisto/bagisto.git` | a fork URL |
 
-## Version Constraint Examples
+## Stripe
 
-- `*` - Install latest version (default)
-- `^1.0` - Install version >= 1.0 and < 2.0 (recommended)
-- `~1.5` - Install version >= 1.5 and < 1.6
-- `1.2.3` - Install exact version 1.2.3
-- `>=1.0 <2.0` - Install version between 1.0 and 2.0
+Bagisto bundles its own Stripe payment method (`packages/Webkul/Stripe`, using `stripe/stripe-php ^17`), so
+`codenteq/stripe-payment-gateway` is no longer installed — it cannot be resolved against Bagisto's
+`stripe-php` requirement and registers the same `sales.payment_methods.stripe` config key. Configure keys under
+Admin → Configuration → Sales → Payment Methods → Stripe.
 
 ## Using with Helm Chart
 
@@ -142,38 +102,14 @@ Update your Helm `values.yaml` to use the custom image:
 ```yaml
 image:
   repository: your-registry/bagisto-production
-  tag: "2.3.11-stripe-1.0"
+  tag: "v2.5.0"
   pullPolicy: IfNotPresent
 ```
 
 ## Tagging Strategy
 
-Recommended tagging format: `{bagisto-version}-stripe-{stripe-version}`
-
-Examples:
-- `bagisto-production:2.3.11-stripe-1.0`
-- `bagisto-production:2.3.11-stripe-latest`
-- `bagisto-production:2.3.11-no-stripe`
-
-## Version Control in Git
-
-Create a `.env.docker` file to version control build arguments:
-
-```bash
-# .env.docker
-STRIPE_GATEWAY_VERSION=^1.0
-INSTALL_STRIPE_GATEWAY=true
-```
-
-Then build using:
-
-```bash
-docker build \
-  --build-arg STRIPE_GATEWAY_VERSION=$(grep STRIPE_GATEWAY_VERSION .env.docker | cut -d '=' -f2) \
-  --build-arg INSTALL_STRIPE_GATEWAY=$(grep INSTALL_STRIPE_GATEWAY .env.docker | cut -d '=' -f2) \
-  -f Dockerfile.production \
-  -t bagisto-production:latest .
-```
+The CI workflow (`.github/workflows/build-image.yml`) tags images with `{bagisto-version}` on manual dispatch and
+`{bagisto-version}-{short-sha}` on pushes, plus branch/semver/`latest` tags.
 
 ## CI/CD Pipeline Example
 
@@ -187,7 +123,7 @@ on:
     branches: [main]
 
 env:
-  STRIPE_GATEWAY_VERSION: "^1.0"
+  BAGISTO_VERSION: "v2.5.0"
 
 jobs:
   build:
@@ -198,8 +134,8 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
-            --build-arg STRIPE_GATEWAY_VERSION=${{ env.STRIPE_GATEWAY_VERSION }} \
-            -f Dockerfile.production \
+            --build-arg BAGISTO_VERSION=${{ env.BAGISTO_VERSION }} \
+            -f build/Dockerfile \
             -t ${{ secrets.REGISTRY }}/bagisto-production:${{ github.sha }} \
             -t ${{ secrets.REGISTRY }}/bagisto-production:latest .
 
@@ -224,10 +160,10 @@ RUN if [ "$INSTALL_PAYPAL_EXTENSION" = "true" ]; then \
 
 ## Troubleshooting
 
-### Check installed Stripe version
+### Check installed Stripe SDK version
 
 ```bash
-docker run --rm bagisto-production:latest composer show codenteq/stripe-payment-gateway
+docker run --rm bagisto-production:latest composer show stripe/stripe-php
 ```
 
 ### Verify extensions are loaded

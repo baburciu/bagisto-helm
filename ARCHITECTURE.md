@@ -66,7 +66,7 @@ FrankenPHP simplifies this by embedding PHP directly into the Caddy web server:
 **Purpose**: Serves the entire application — both static files and PHP — via FrankenPHP
 
 **Image**: Custom multi-architecture Bagisto image with:
-- FrankenPHP 1.x (Caddy + embedded PHP 8.3)
+- FrankenPHP 1.x (Caddy + embedded PHP 8.4)
 - Redis, GD, Imagick, Intl, and other PHP extensions
 - All PHP dependencies (Composer packages)
 - Compiled frontend assets (Vite build)
